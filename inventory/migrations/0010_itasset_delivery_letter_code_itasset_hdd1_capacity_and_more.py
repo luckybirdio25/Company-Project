@@ -53,7 +53,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='itasset',
             name='owner',
-            field=models.CharField(choices=[('aman', 'Aman'), ('ctp', 'CTP'), ('misr_assist', 'Misr Assist')], default='aman', max_length=20),
+            field=models.CharField(choices=[('radioshack', 'RadioShack'), ('computer_shop', 'Computer Shop'), ('mobile_shop', 'Mobile Shop'), ('compu_me', 'Compu Me'), ('smart_home', 'Smart Home'), ('vodafone', 'vodafone')], default='radioshack', max_length=20),
         ),
         migrations.AddField(
             model_name='itasset',

@@ -7,7 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany
+from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory
 from .forms import EmployeeForm, ITAssetForm
 from django.http import HttpResponse
 import openpyxl
@@ -57,6 +57,9 @@ def home(request):
         warranty_expiry__lte=three_months_later
     ).select_related('asset_type', 'owner', 'assigned_to')
 
+    # Get recent asset history
+    recent_history = AssetHistory.objects.select_related('asset', 'assigned_to').order_by('-date')[:5]
+
     context = {
         'total_assets': total_assets,
         'total_employees': total_employees,
@@ -68,6 +71,7 @@ def home(request):
         'owner_company_distribution': owner_company_distribution,
         'recent_assets': recent_assets,
         'expiring_warranty_assets': expiring_warranty_assets,
+        'recent_history': recent_history,
     }
     return render(request, 'inventory/home.html', context)
 
@@ -964,4 +968,37 @@ class DepartmentDeleteView(LoginRequiredMixin, DeleteView):
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Department deleted successfully.')
-        return super().delete(request, *args, **kwargs)  
+        return super().delete(request, *args, **kwargs)
+
+class AssetHistoryListView(LoginRequiredMixin, ListView):
+    model = AssetHistory
+    template_name = 'inventory/asset_history.html'
+    context_object_name = 'history_entries'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related('asset', 'assigned_to')
+        
+        # Get filter parameters
+        search_query = self.request.GET.get('search', '')
+        status = self.request.GET.get('status', '')
+        
+        # Apply search filter
+        if search_query:
+            queryset = queryset.filter(
+                Q(asset__name__icontains=search_query) |
+                Q(asset__serial_number__icontains=search_query) |
+                Q(assigned_to__first_name__icontains=search_query) |
+                Q(assigned_to__last_name__icontains=search_query)
+            )
+        
+        # Apply status filter
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['status_choices'] = ITAsset.STATUS_CHOICES
+        return context  

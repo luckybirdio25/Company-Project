@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='itasset',
             name='owner',
-            field=models.CharField(choices=[('AMAN', 'Aman'), ('CTP', 'CTP'), ('MISR_ASSIST', 'Misr Assist')], default='CTP', max_length=20),
+            field=models.CharField(choices=[('radioshack', 'RadioShack'), ('computer_shop', 'Computer Shop'), ('mobile_shop', 'Mobile Shop'), ('compu_me', 'Compu Me'), ('smart_home', 'Smart Home'), ('vodafone', 'vodafone')], default='radioshack', max_length=20),
         ),
     ]

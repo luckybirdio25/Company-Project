@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='department',
             name='name',
-            field=models.CharField(choices=[('warehouse', 'Warehouse'), ('hr', 'HR'), ('procurement', 'Procurement'), ('quality', 'Quality'), ('finance', 'Finance'), ('production', 'Production'), ('maintenance', 'Maintenance'), ('osh', 'Occupational Safety and Health'), ('it', 'IT')], max_length=100),
+            field=models.CharField(choices=[('warehouse', 'Warehouse'), ('hr', 'HR'), ('purchasing', 'Purchasing'), ('finance', 'Finance'), ('production', 'Production'), ('maintenance', 'Maintenance'), ('it', 'IT')], max_length=100),
         ),
         migrations.AlterField(
             model_name='itasset',

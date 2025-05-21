@@ -33,6 +33,7 @@ urlpatterns = [
     path('asset-types/create/', views.AssetTypeCreateView.as_view(), name='asset_type_create'),
     path('asset-types/<int:pk>/update/', views.AssetTypeUpdateView.as_view(), name='asset_type_update'),
     path('asset-types/<int:pk>/delete/', views.AssetTypeDeleteView.as_view(), name='asset_type_delete'),
+    path('asset-history/', views.AssetHistoryListView.as_view(), name='asset_history'),
     
     # Owner Company URLs
     path('owner-companies/', views.OwnerCompanyListView.as_view(), name='owner_company_list'),

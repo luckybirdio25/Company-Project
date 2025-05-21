@@ -5,12 +5,10 @@ def populate_departments(apps, schema_editor):
     departments = [
         ('warehouse', 'Warehouse'),
         ('hr', 'HR'),
-        ('procurement', 'Procurement'),
-        ('quality', 'Quality'),
+        ('purchasing', 'Purchasing'),
         ('finance', 'Finance'),
         ('production', 'Production'),
         ('maintenance', 'Maintenance'),
-        ('osh', 'Occupational Safety and Health'),
         ('it', 'IT'),
     ]
     

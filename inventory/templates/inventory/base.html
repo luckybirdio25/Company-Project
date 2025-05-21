@@ -73,6 +73,12 @@
                             <i class="fas fa-sitemap me-1"></i>Departments
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'asset-history' in request.path %}active{% endif %}" 
+                           href="{% url 'inventory:asset_history' %}">
+                            <i class="fas fa-history me-1"></i>Asset History
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>

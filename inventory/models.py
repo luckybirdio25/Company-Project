@@ -150,6 +150,34 @@ class ITAsset(models.Model):
     ups_battery_replacement_date = models.DateField(blank=True, null=True)
     ups_manufacturer = models.CharField(max_length=100, blank=True, null=True)
 
+    def save(self, *args, **kwargs):
+        # Check if this is a new asset or an update
+        if self.pk:
+            # Get the old instance from the database
+            old_instance = ITAsset.objects.get(pk=self.pk)
+            
+            # Check if status or assigned_to has changed
+            if old_instance.status != self.status or old_instance.assigned_to != self.assigned_to:
+                # Create a history entry
+                AssetHistory.objects.create(
+                    asset=self,
+                    status=self.status,
+                    assigned_to=self.assigned_to,
+                    notes=f"Status changed from {old_instance.get_status_display()} to {self.get_status_display()}"
+                )
+        else:
+            # This is a new asset, create initial history entry
+            super().save(*args, **kwargs)
+            AssetHistory.objects.create(
+                asset=self,
+                status=self.status,
+                assigned_to=self.assigned_to,
+                notes="Asset created"
+            )
+            return
+
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ['name']
         verbose_name = 'IT Asset'
@@ -157,3 +185,18 @@ class ITAsset(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.serial_number})"
+
+class AssetHistory(models.Model):
+    asset = models.ForeignKey(ITAsset, on_delete=models.CASCADE, related_name='history')
+    status = models.CharField(max_length=20, choices=ITAsset.STATUS_CHOICES)
+    assigned_to = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True)
+    date = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-date']
+        verbose_name = 'Asset History'
+        verbose_name_plural = 'Asset History'
+
+    def __str__(self):
+        return f"{self.asset.name} - {self.get_status_display()} - {self.date}"
