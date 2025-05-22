@@ -295,5 +295,40 @@ class RoleForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'permissions': forms.HiddenInput(),  # We'll handle this with JavaScript
-        } 
+            'permissions': forms.HiddenInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set default permissions if creating new role
+        if not self.instance.pk:
+            self.initial['permissions'] = {
+                'view_company': False,
+                'add_company': False,
+                'change_company': False,
+                'delete_company': False,
+                'view_assettype': False,
+                'add_assettype': False,
+                'change_assettype': False,
+                'delete_assettype': False,
+                'view_department': False,
+                'add_department': False,
+                'change_department': False,
+                'delete_department': False,
+                'view_asset': False,
+                'add_asset': False,
+                'change_asset': False,
+                'delete_asset': False,
+                'view_employee': False,
+                'add_employee': False,
+                'change_employee': False,
+                'delete_employee': False,
+                'view_user': False,
+                'add_user': False,
+                'change_user': False,
+                'delete_user': False,
+                'view_role': False,
+                'add_role': False,
+                'change_role': False,
+                'delete_role': False,
+            } 

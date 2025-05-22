@@ -48,75 +48,210 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
+                            <!-- Company Permissions -->
                             <div class="col-md-4">
-                                <h6 class="font-weight-bold mb-3">Asset Management</h6>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="view_assets" id="view_assets">
-                                    <label class="form-check-label" for="view_assets">View Assets</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="add_assets" id="add_assets">
-                                    <label class="form-check-label" for="add_assets">Add Assets</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="edit_assets" id="edit_assets">
-                                    <label class="form-check-label" for="edit_assets">Edit Assets</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="delete_assets" id="delete_assets">
-                                    <label class="form-check-label" for="delete_assets">Delete Assets</label>
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="m-0 font-weight-bold text-primary">Company Permissions</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="view_company" id="view_company">
+                                            <label class="form-check-label" for="view_company">View Companies</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="add_company" id="add_company">
+                                            <label class="form-check-label" for="add_company">Add Companies</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="change_company" id="change_company">
+                                            <label class="form-check-label" for="change_company">Edit Companies</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="delete_company" id="delete_company">
+                                            <label class="form-check-label" for="delete_company">Delete Companies</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
+                            <!-- Asset Type Permissions -->
                             <div class="col-md-4">
-                                <h6 class="font-weight-bold mb-3">Employee Management</h6>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="view_employees" id="view_employees">
-                                    <label class="form-check-label" for="view_employees">View Employees</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="add_employees" id="add_employees">
-                                    <label class="form-check-label" for="add_employees">Add Employees</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="edit_employees" id="edit_employees">
-                                    <label class="form-check-label" for="edit_employees">Edit Employees</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="delete_employees" id="delete_employees">
-                                    <label class="form-check-label" for="delete_employees">Delete Employees</label>
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="m-0 font-weight-bold text-primary">Asset Type Permissions</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="view_assettype" id="view_assettype">
+                                            <label class="form-check-label" for="view_assettype">View Asset Types</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="add_assettype" id="add_assettype">
+                                            <label class="form-check-label" for="add_assettype">Add Asset Types</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="change_assettype" id="change_assettype">
+                                            <label class="form-check-label" for="change_assettype">Edit Asset Types</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="delete_assettype" id="delete_assettype">
+                                            <label class="form-check-label" for="delete_assettype">Delete Asset Types</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
+                            <!-- Department Permissions -->
                             <div class="col-md-4">
-                                <h6 class="font-weight-bold mb-3">Team Management</h6>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="view_teams" id="view_teams">
-                                    <label class="form-check-label" for="view_teams">View Teams</label>
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="m-0 font-weight-bold text-primary">Department Permissions</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="view_department" id="view_department">
+                                            <label class="form-check-label" for="view_department">View Departments</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="add_department" id="add_department">
+                                            <label class="form-check-label" for="add_department">Add Departments</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="change_department" id="change_department">
+                                            <label class="form-check-label" for="change_department">Edit Departments</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="delete_department" id="delete_department">
+                                            <label class="form-check-label" for="delete_department">Delete Departments</label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="add_teams" id="add_teams">
-                                    <label class="form-check-label" for="add_teams">Add Teams</label>
+                            </div>
+
+                            <!-- Asset Permissions -->
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="m-0 font-weight-bold text-primary">Asset Permissions</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="view_asset" id="view_asset">
+                                            <label class="form-check-label" for="view_asset">View Assets</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="add_asset" id="add_asset">
+                                            <label class="form-check-label" for="add_asset">Add Assets</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="change_asset" id="change_asset">
+                                            <label class="form-check-label" for="change_asset">Edit Assets</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="delete_asset" id="delete_asset">
+                                            <label class="form-check-label" for="delete_asset">Delete Assets</label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="edit_teams" id="edit_teams">
-                                    <label class="form-check-label" for="edit_teams">Edit Teams</label>
+                            </div>
+
+                            <!-- Employee Permissions -->
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="m-0 font-weight-bold text-primary">Employee Permissions</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="view_employee" id="view_employee">
+                                            <label class="form-check-label" for="view_employee">View Employees</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="add_employee" id="add_employee">
+                                            <label class="form-check-label" for="add_employee">Add Employees</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="change_employee" id="change_employee">
+                                            <label class="form-check-label" for="change_employee">Edit Employees</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="delete_employee" id="delete_employee">
+                                            <label class="form-check-label" for="delete_employee">Delete Employees</label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" class="form-check-input permission-checkbox" 
-                                           data-permission="delete_teams" id="delete_teams">
-                                    <label class="form-check-label" for="delete_teams">Delete Teams</label>
+                            </div>
+
+                            <!-- User & Role Permissions -->
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="m-0 font-weight-bold text-primary">User & Role Permissions</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="view_user" id="view_user">
+                                            <label class="form-check-label" for="view_user">View Users</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="add_user" id="add_user">
+                                            <label class="form-check-label" for="add_user">Add Users</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="change_user" id="change_user">
+                                            <label class="form-check-label" for="change_user">Edit Users</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="delete_user" id="delete_user">
+                                            <label class="form-check-label" for="delete_user">Delete Users</label>
+                                        </div>
+                                        <hr>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="view_role" id="view_role">
+                                            <label class="form-check-label" for="view_role">View Roles</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="add_role" id="add_role">
+                                            <label class="form-check-label" for="add_role">Add Roles</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="change_role" id="change_role">
+                                            <label class="form-check-label" for="change_role">Edit Roles</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input permission-checkbox" 
+                                                   data-permission="delete_role" id="delete_role">
+                                            <label class="form-check-label" for="delete_role">Delete Roles</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
