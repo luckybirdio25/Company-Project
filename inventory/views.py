@@ -7,14 +7,16 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory
-from .forms import EmployeeForm, ITAssetForm
+from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory, Team, User, Role
+from .forms import EmployeeForm, ITAssetForm, UserForm, UserProfileForm, RoleForm
 from django.http import HttpResponse
 import openpyxl
 from openpyxl import Workbook
 from datetime import datetime, timedelta
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
+from django.contrib.auth import authenticate, login, logout
+from django.utils import timezone
 
 @login_required
 def home(request):
@@ -1001,4 +1003,276 @@ class AssetHistoryListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['status_choices'] = ITAsset.STATUS_CHOICES
-        return context  
+        return context
+
+# Team Views
+class TeamListView(LoginRequiredMixin, ListView):
+    model = Team
+    template_name = 'inventory/team_list.html'
+    context_object_name = 'teams'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search_query = self.request.GET.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                Q(name__icontains=search_query) |
+                Q(department__name__icontains=search_query) |
+                Q(manager__first_name__icontains=search_query) |
+                Q(manager__last_name__icontains=search_query)
+            )
+        return queryset.select_related('department', 'manager')
+
+class TeamCreateView(LoginRequiredMixin, CreateView):
+    model = Team
+    template_name = 'inventory/team_form.html'
+    fields = ['name', 'department', 'manager', 'description']
+    success_url = reverse_lazy('inventory:team_list')
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields['manager'].queryset = Employee.objects.filter(is_active=True)
+        return form
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['available_employees'] = Employee.objects.filter(is_active=True)
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # Handle team members
+        team_members = self.request.POST.getlist('team_members')
+        if team_members:
+            employees = Employee.objects.filter(id__in=team_members)
+            for employee in employees:
+                employee.team = form.instance
+                employee.save()
+        return response
+
+class TeamUpdateView(LoginRequiredMixin, UpdateView):
+    model = Team
+    template_name = 'inventory/team_form.html'
+    fields = ['name', 'department', 'manager', 'description']
+    success_url = reverse_lazy('inventory:team_list')
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields['manager'].queryset = Employee.objects.filter(is_active=True)
+        return form
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['available_employees'] = Employee.objects.filter(
+            is_active=True,
+            department=self.object.department
+        )
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # Handle team members
+        team_members = self.request.POST.getlist('team_members')
+        
+        # Remove all current members
+        Employee.objects.filter(team=form.instance).update(team=None)
+        
+        # Add selected members
+        if team_members:
+            employees = Employee.objects.filter(id__in=team_members)
+            for employee in employees:
+                employee.team = form.instance
+                employee.save()
+        return response
+
+class TeamDeleteView(LoginRequiredMixin, DeleteView):
+    model = Team
+    template_name = 'inventory/team_confirm_delete.html'
+    success_url = reverse_lazy('inventory:team_list')
+
+    def delete(self, request, *args, **kwargs):
+        team = self.get_object()
+        # Update all team members to remove team association
+        Employee.objects.filter(team=team).update(team=None)
+        return super().delete(request, *args, **kwargs)
+
+class TeamDetailView(LoginRequiredMixin, DetailView):
+    model = Team
+    template_name = 'inventory/team_detail.html'
+    context_object_name = 'team'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['members'] = self.object.members.all().select_related('department', 'company')
+        context['available_employees'] = Employee.objects.filter(
+            is_active=True,
+            department=self.object.department,
+            team__isnull=True
+        ).select_related('department', 'company')
+        
+        # Check if user has an employee profile before accessing it
+        try:
+            context['is_manager'] = self.object.manager == self.request.user.employee_profile
+        except:
+            context['is_manager'] = False
+            
+        return context
+
+@login_required
+def add_team_member(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    
+    # Check if user is the team manager
+    if request.user.employee_profile != team.manager:
+        messages.error(request, 'Only the team manager can add members.')
+        return redirect('inventory:team_detail', pk=team_id)
+    
+    if request.method == 'POST':
+        employee_id = request.POST.get('employee_id')
+        if employee_id:
+            employee = get_object_or_404(Employee, id=employee_id)
+            if employee.department == team.department:
+                employee.team = team
+                employee.save()
+                messages.success(request, f'{employee.get_full_name()} has been added to the team.')
+            else:
+                messages.error(request, 'Employee must be from the same department as the team.')
+    return redirect('inventory:team_detail', pk=team_id)
+
+@login_required
+def remove_team_member(request, team_id, employee_id):
+    team = get_object_or_404(Team, id=team_id)
+    
+    # Check if user is the team manager
+    if request.user.employee_profile != team.manager:
+        messages.error(request, 'Only the team manager can remove members.')
+        return redirect('inventory:team_detail', pk=team_id)
+    
+    employee = get_object_or_404(Employee, id=employee_id)
+    if employee.team == team:
+        employee.team = None
+        employee.save()
+        messages.success(request, f'{employee.get_full_name()} has been removed from the team.')
+    return redirect('inventory:team_detail', pk=team_id)
+
+@login_required
+def my_teams(request):
+    """View for team managers to see their teams."""
+    managed_teams = Team.objects.filter(manager=request.user.employee_profile)
+    return render(request, 'inventory/my_teams.html', {
+        'teams': managed_teams
+    })
+
+# User Management Views
+class UserListView(LoginRequiredMixin, ListView):
+    model = User
+    template_name = 'inventory/user_list.html'
+    context_object_name = 'users'
+
+    def get_queryset(self):
+        return User.objects.select_related('profile', 'profile__role', 'profile__employee')
+
+class UserCreateView(LoginRequiredMixin, CreateView):
+    model = User
+    form_class = UserForm
+    template_name = 'inventory/user_form.html'
+    success_url = reverse_lazy('inventory:user_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['profile_form'] = UserProfileForm(self.request.POST)
+        else:
+            context['profile_form'] = UserProfileForm()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        profile_form = context['profile_form']
+        if profile_form.is_valid():
+            user = form.save()
+            profile = profile_form.save(commit=False)
+            profile.user = user
+            profile.save()
+            messages.success(self.request, 'User created successfully.')
+            return redirect(self.success_url)
+        return self.render_to_response(self.get_context_data(form=form))
+
+class UserUpdateView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = UserForm
+    template_name = 'inventory/user_form.html'
+    success_url = reverse_lazy('inventory:user_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['profile_form'] = UserProfileForm(self.request.POST, instance=self.object.profile)
+        else:
+            context['profile_form'] = UserProfileForm(instance=self.object.profile)
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        profile_form = context['profile_form']
+        if profile_form.is_valid():
+            user = form.save()
+            profile_form.save()
+            messages.success(self.request, 'User updated successfully.')
+            return redirect(self.success_url)
+        return self.render_to_response(self.get_context_data(form=form))
+
+class UserDeleteView(LoginRequiredMixin, DeleteView):
+    model = User
+    template_name = 'inventory/user_confirm_delete.html'
+    success_url = reverse_lazy('inventory:user_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'User deleted successfully.')
+        return super().delete(request, *args, **kwargs)
+
+# Role Management Views
+class RoleListView(LoginRequiredMixin, ListView):
+    model = Role
+    template_name = 'inventory/role_list.html'
+    context_object_name = 'roles'
+
+class RoleCreateView(LoginRequiredMixin, CreateView):
+    model = Role
+    form_class = RoleForm
+    template_name = 'inventory/role_form.html'
+    success_url = reverse_lazy('inventory:role_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Role created successfully.')
+        return super().form_valid(form)
+
+class RoleUpdateView(LoginRequiredMixin, UpdateView):
+    model = Role
+    form_class = RoleForm
+    template_name = 'inventory/role_form.html'
+    success_url = reverse_lazy('inventory:role_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Role updated successfully.')
+        return super().form_valid(form)
+
+class RoleDeleteView(LoginRequiredMixin, DeleteView):
+    model = Role
+    template_name = 'inventory/role_confirm_delete.html'
+    success_url = reverse_lazy('inventory:role_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'Role deleted successfully.')
+        return super().delete(request, *args, **kwargs)
+
+# Authentication Views
+@login_required
+def logout_view(request):
+    # Set last_activity to None before logging out
+    if hasattr(request.user, 'profile'):
+        profile = request.user.profile
+        profile.last_activity = None
+        profile.save(update_fields=['last_activity'])
+    logout(request)
+    return redirect('/accounts/login/')  

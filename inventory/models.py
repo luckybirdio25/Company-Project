@@ -20,6 +20,22 @@ class Department(models.Model):
         verbose_name = 'Department'
         verbose_name_plural = 'Departments'
 
+class Team(models.Model):
+    name = models.CharField(max_length=100)
+    manager = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, related_name='managed_teams')
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='teams')
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.department.name})"
+
+    class Meta:
+        ordering = ['department', 'name']
+        verbose_name = 'Team'
+        verbose_name_plural = 'Teams'
+
 class Position(models.Model):
     name = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='positions')
@@ -59,6 +75,7 @@ class Employee(models.Model):
     position = models.CharField(max_length=100)
     hire_date = models.DateField()
     company = models.ForeignKey(OwnerCompany, on_delete=models.PROTECT, related_name='employees')
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -68,6 +85,12 @@ class Employee(models.Model):
 
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
+
+    def get_team_members(self):
+        """Returns all team members if this employee is a team manager"""
+        if self.managed_teams.exists():
+            return Employee.objects.filter(team__in=self.managed_teams.all())
+        return None
 
     class Meta:
         ordering = ['first_name', 'last_name']
@@ -93,6 +116,7 @@ class ITAsset(models.Model):
         ('available', 'Available'),
         ('assigned', 'Assigned'),
         ('maintenance', 'Under Maintenance'),
+        ('return', 'Return'),
         ('retired', 'Retired'),
     ]
 
@@ -200,3 +224,42 @@ class AssetHistory(models.Model):
 
     def __str__(self):
         return f"{self.asset.name} - {self.get_status_display()} - {self.date}"
+
+class Role(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    permissions = models.JSONField(default=dict)  # Store permissions as JSON
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True)
+    employee = models.OneToOneField(Employee, on_delete=models.SET_NULL, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+    last_activity = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s Profile"
+
+    def has_permission(self, permission):
+        if not self.role or not self.is_active:
+            return False
+        return self.role.permissions.get(permission, False)
+
+    def get_all_permissions(self):
+        if not self.role:
+            return {}
+        return self.role.permissions
+
+    def is_online(self):
+        if not self.last_activity:
+            return False
+        # Consider user online if they have had activity in the last 5 minutes
+        return (timezone.now() - self.last_activity).total_seconds() <= 300  # 5 minutes = 300 seconds

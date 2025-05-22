@@ -1,0 +1,162 @@
+{% extends 'inventory/base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            {% if form.instance.pk %}Edit Role{% else %}Create New Role{% endif %}
+        </h1>
+        <a href="{% url 'inventory:role_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Roles
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- Basic Information -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">Role Name *</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.name.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.description.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Permissions -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="m-0 font-weight-bold text-primary">Permissions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6 class="font-weight-bold mb-3">Asset Management</h6>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="view_assets" id="view_assets">
+                                    <label class="form-check-label" for="view_assets">View Assets</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="add_assets" id="add_assets">
+                                    <label class="form-check-label" for="add_assets">Add Assets</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="edit_assets" id="edit_assets">
+                                    <label class="form-check-label" for="edit_assets">Edit Assets</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="delete_assets" id="delete_assets">
+                                    <label class="form-check-label" for="delete_assets">Delete Assets</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <h6 class="font-weight-bold mb-3">Employee Management</h6>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="view_employees" id="view_employees">
+                                    <label class="form-check-label" for="view_employees">View Employees</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="add_employees" id="add_employees">
+                                    <label class="form-check-label" for="add_employees">Add Employees</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="edit_employees" id="edit_employees">
+                                    <label class="form-check-label" for="edit_employees">Edit Employees</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="delete_employees" id="delete_employees">
+                                    <label class="form-check-label" for="delete_employees">Delete Employees</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <h6 class="font-weight-bold mb-3">Team Management</h6>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="view_teams" id="view_teams">
+                                    <label class="form-check-label" for="view_teams">View Teams</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="add_teams" id="add_teams">
+                                    <label class="form-check-label" for="add_teams">Add Teams</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="edit_teams" id="edit_teams">
+                                    <label class="form-check-label" for="edit_teams">Edit Teams</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input permission-checkbox" 
+                                           data-permission="delete_teams" id="delete_teams">
+                                    <label class="form-check-label" for="delete_teams">Delete Teams</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{ form.permissions }}
+
+                <div class="d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Role
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize permissions from the hidden field
+        var permissions = JSON.parse($('#{{ form.permissions.id_for_label }}').val() || '{}');
+        
+        // Set checkbox states
+        $('.permission-checkbox').each(function() {
+            var permission = $(this).data('permission');
+            $(this).prop('checked', permissions[permission] || false);
+        });
+
+        // Update hidden field when checkboxes change
+        $('.permission-checkbox').change(function() {
+            var permissions = {};
+            $('.permission-checkbox').each(function() {
+                var permission = $(this).data('permission');
+                permissions[permission] = $(this).prop('checked');
+            });
+            $('#{{ form.permissions.id_for_label }}').val(JSON.stringify(permissions));
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %} 

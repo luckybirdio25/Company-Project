@@ -46,4 +46,29 @@ urlpatterns = [
     path('departments/create/', views.DepartmentCreateView.as_view(), name='department_create'),
     path('departments/<int:pk>/update/', views.DepartmentUpdateView.as_view(), name='department_update'),
     path('departments/<int:pk>/delete/', views.DepartmentDeleteView.as_view(), name='department_delete'),
+
+    # Team URLs
+    path('teams/', views.TeamListView.as_view(), name='team_list'),
+    path('teams/my-teams/', views.my_teams, name='my_teams'),
+    path('teams/create/', views.TeamCreateView.as_view(), name='team_create'),
+    path('teams/<int:pk>/', views.TeamDetailView.as_view(), name='team_detail'),
+    path('teams/<int:pk>/update/', views.TeamUpdateView.as_view(), name='team_update'),
+    path('teams/<int:pk>/delete/', views.TeamDeleteView.as_view(), name='team_delete'),
+    path('teams/<int:team_id>/add-member/', views.add_team_member, name='add_team_member'),
+    path('teams/<int:team_id>/remove-member/<int:employee_id>/', views.remove_team_member, name='remove_team_member'),
+
+    # User Management URLs
+    path('users/', views.UserListView.as_view(), name='user_list'),
+    path('users/create/', views.UserCreateView.as_view(), name='user_create'),
+    path('users/<int:pk>/update/', views.UserUpdateView.as_view(), name='user_update'),
+    path('users/<int:pk>/delete/', views.UserDeleteView.as_view(), name='user_delete'),
+    
+    # Role Management URLs
+    path('roles/', views.RoleListView.as_view(), name='role_list'),
+    path('roles/create/', views.RoleCreateView.as_view(), name='role_create'),
+    path('roles/<int:pk>/update/', views.RoleUpdateView.as_view(), name='role_update'),
+    path('roles/<int:pk>/delete/', views.RoleDeleteView.as_view(), name='role_delete'),
+    
+    # Authentication URLs
+    path('logout/', views.logout_view, name='logout'),
 ]

@@ -136,3 +136,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = '/inventory/'  # Redirect to inventory home page after login
 LOGOUT_REDIRECT_URL = '/accounts/login/'  # Redirect to login page after logout
 LOGIN_URL = '/accounts/login/'  # URL where requests are redirected for login
+
+AUTHENTICATION_BACKENDS = [
+    'inventory.auth_backend.CustomAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]

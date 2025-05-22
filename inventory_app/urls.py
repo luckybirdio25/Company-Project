@@ -20,7 +20,7 @@ from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
 
 def redirect_to_login(request):
-    return redirect('login')
+    return redirect('/accounts/login/')
 
 urlpatterns = [
     path('', redirect_to_login, name='index'),  # Redirect root URL to login
