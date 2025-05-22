@@ -1227,7 +1227,40 @@ class UserDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'inventory/user_confirm_delete.html'
     success_url = reverse_lazy('inventory:user_list')
 
+    def get(self, request, *args, **kwargs):
+        # Check if this is the last user
+        if User.objects.count() <= 1:
+            messages.error(request, 'Cannot delete the last user in the system.')
+            return redirect('inventory:user_list')
+
+        # Get the user to be deleted
+        user_to_delete = self.get_object()
+        
+        # Check if trying to delete an admin user
+        if user_to_delete.profile.role and user_to_delete.profile.role.name == 'Administrator':
+            # Only allow deletion if the current user is also an admin
+            if not request.user.profile.role or request.user.profile.role.name != 'Administrator':
+                messages.error(request, 'Only administrators can delete administrator users.')
+                return redirect('inventory:user_list')
+
+        return super().get(request, *args, **kwargs)
+
     def delete(self, request, *args, **kwargs):
+        # Check if this is the last user
+        if User.objects.count() <= 1:
+            messages.error(request, 'Cannot delete the last user in the system.')
+            return redirect('inventory:user_list')
+
+        # Get the user to be deleted
+        user_to_delete = self.get_object()
+        
+        # Check if trying to delete an admin user
+        if user_to_delete.profile.role and user_to_delete.profile.role.name == 'Administrator':
+            # Only allow deletion if the current user is also an admin
+            if not request.user.profile.role or request.user.profile.role.name != 'Administrator':
+                messages.error(request, 'Only administrators can delete administrator users.')
+                return redirect('inventory:user_list')
+            
         messages.success(request, 'User deleted successfully.')
         return super().delete(request, *args, **kwargs)
 
@@ -1262,7 +1295,24 @@ class RoleDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'inventory/role_confirm_delete.html'
     success_url = reverse_lazy('inventory:role_list')
 
+    def get(self, request, *args, **kwargs):
+        role = self.get_object()
+        
+        # Prevent deletion of Administrator role
+        if role.name == 'Administrator':
+            messages.error(request, 'Cannot delete the Administrator role.')
+            return redirect('inventory:role_list')
+            
+        return super().get(request, *args, **kwargs)
+
     def delete(self, request, *args, **kwargs):
+        role = self.get_object()
+        
+        # Prevent deletion of Administrator role
+        if role.name == 'Administrator':
+            messages.error(request, 'Cannot delete the Administrator role.')
+            return redirect('inventory:role_list')
+            
         messages.success(request, 'Role deleted successfully.')
         return super().delete(request, *args, **kwargs)
 
