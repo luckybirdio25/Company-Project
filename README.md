@@ -92,48 +92,6 @@ python manage.py runserver your.ip.address:8000
 
 Other computers can access the application at: http://your.ip.address:8000
 
-## Default Login Credentials
-
-After initial setup, you can log in with:
-- Username: admin
-- Password: 123
-
-**Important**: Change the password after first login for security reasons.
-
-## Troubleshooting
-
-### Database Issues
-If you drop the database and need to recreate it:
-
-1. Drop the existing database:
-```sql
-DROP DATABASE inventory_db_it;
-```
-
-2. Create a new database:
-```sql
-CREATE DATABASE inventory_db_it;
-```
-
-3. Run migrations:
-```bash
-python manage.py migrate
-```
-
-4. Create superuser and set up admin role:
-```bash
-python manage.py createsuperuser
-python setup_admin.py
-```
-
-### Network Access Issues
-If other computers cannot access the application:
-
-1. Check if Windows Firewall is blocking port 8000
-2. Ensure both computers are on the same network
-3. Verify the Django server is running with the correct IP address
-4. Test connectivity by pinging your IP from other computers
-
 ## Features
 
 - IT Asset Management
