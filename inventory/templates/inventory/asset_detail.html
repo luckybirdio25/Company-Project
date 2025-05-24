@@ -168,6 +168,53 @@
                 </div>
             </div>
             {% endif %}
+
+            <!-- Asset History Section -->
+            <div class="card mt-4">
+                <div class="card-header"><h5><i class="fas fa-history icon"></i> Asset History</h5></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive mb-0">
+                        <table class="table table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Assigned To</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for history in object.history.all %}
+                                <tr>
+                                    <td>{{ history.date|date:"F j, Y, g:i a" }}</td>
+                                    <td>
+                                        <span class="badge {% if history.status == 'available' %}bg-success
+                                                         {% elif history.status == 'assigned' %}bg-primary
+                                                         {% elif history.status == 'maintenance' %}bg-warning
+                                                         {% elif history.status == 'return' %}bg-info
+                                                         {% else %}bg-secondary{% endif %}">
+                                            {{ history.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if history.assigned_to %}
+                                            {{ history.assigned_to.get_full_name }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ history.notes }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No history available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

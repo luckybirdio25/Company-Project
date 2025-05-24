@@ -1,5 +1,5 @@
 from django import forms
-from .models import Employee, ITAsset, Department, OwnerCompany, User, UserProfile, Role
+from .models import Employee, ITAsset, Department, OwnerCompany, User, UserProfile, Role, Message
 
 class EmployeeForm(forms.ModelForm):
     """Form for creating and updating Employee records."""
@@ -332,3 +332,37 @@ class RoleForm(forms.ModelForm):
                 'change_role': False,
                 'delete_role': False,
             } 
+
+class MessageForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = ['recipient', 'subject', 'content', 'asset']
+        widgets = {
+            'recipient': forms.Select(attrs={'class': 'form-select'}),
+            'subject': forms.TextInput(attrs={'class': 'form-control'}),
+            'content': forms.Textarea(attrs={
+                'class': 'form-control rich-text-editor',
+                'rows': 10,
+                'data-provider': 'summernote'
+            }),
+            'asset': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only show active users in the recipient dropdown
+        self.fields['recipient'].queryset = User.objects.filter(is_active=True)
+        self.fields['recipient'].empty_label = "Select Recipient"
+        
+        # Configure asset field
+        self.fields['asset'].queryset = ITAsset.objects.all().order_by('name')
+        self.fields['asset'].empty_label = "Select an Asset (Optional)"
+        self.fields['asset'].required = False
+        
+        # Make recipient and subject required only for new messages
+        if not self.instance.pk:
+            self.fields['recipient'].required = True
+            self.fields['subject'].required = True
+        else:
+            self.fields['recipient'].required = False
+            self.fields['subject'].required = False 

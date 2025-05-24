@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-c4-+lbbyo$z@or7pkcc1-*qpq4py*4xw9b$0!x&ax1k=bodgd)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['172.16.220.105', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '172.16.220.105']
 
 
 # Application definition
@@ -55,9 +55,7 @@ ROOT_URLCONF = 'inventory_app.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            BASE_DIR / 'inventory' / 'templates',
-        ],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -65,6 +63,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'inventory.context_processors.unread_messages',
             ],
         },
     },

@@ -24,9 +24,7 @@ def create_initial_data(apps, schema_editor):
 
     # Create initial owner companies
     owner_companies = [
-        ('AMAN', 'Aman'),
-        ('CTP', 'CTP'),
-        ('MISR_ASSIST', 'Misr Assist'),
+('radioshack', 'RadioShack'), ('computer_shop', 'Computer Shop'), ('mobile_shop', 'Mobile Shop'), ('compu_me', 'Compu Me'), ('smart_home', 'Smart Home'), ('vodafone', 'vodafone')
     ]
 
     for code, name in owner_companies:

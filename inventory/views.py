@@ -7,8 +7,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory, Team, User, Role
-from .forms import EmployeeForm, ITAssetForm, UserForm, UserProfileForm, RoleForm
+from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory, Team, User, Role, Message
+from .forms import EmployeeForm, ITAssetForm, UserForm, UserProfileForm, RoleForm, MessageForm
 from django.http import HttpResponse
 import openpyxl
 from openpyxl import Workbook
@@ -915,6 +915,17 @@ class OwnerCompanyCreateView(LoginRequiredMixin, CreateView):
     success_url = reverse_lazy('inventory:owner_company_list')
 
     def form_valid(self, form):
+        # Generate code from name: lowercase and replace multiple spaces with single underscore
+        name = form.cleaned_data['name']
+        code = '_'.join(name.lower().split())
+        
+        # Limit code to 20 characters
+        if len(code) > 20:
+            code = code[:20]
+        
+        # Set the code before saving
+        form.instance.code = code
+        
         messages.success(self.request, 'Owner Company created successfully.')
         return super().form_valid(form)
 
@@ -925,6 +936,17 @@ class OwnerCompanyUpdateView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy('inventory:owner_company_list')
 
     def form_valid(self, form):
+        # Generate code from name: lowercase and replace multiple spaces with single underscore
+        name = form.cleaned_data['name']
+        code = '_'.join(name.lower().split())
+        
+        # Limit code to 20 characters
+        if len(code) > 20:
+            code = code[:20]
+        
+        # Set the code before saving
+        form.instance.code = code
+        
         messages.success(self.request, 'Owner Company updated successfully.')
         return super().form_valid(form)
 
@@ -1325,4 +1347,154 @@ def logout_view(request):
         profile.last_activity = None
         profile.save(update_fields=['last_activity'])
     logout(request)
-    return redirect('/accounts/login/')  
+    return redirect('/accounts/login/')
+
+# Message Views
+class MessageListView(LoginRequiredMixin, ListView):
+    model = Message
+    template_name = 'inventory/message_list.html'
+    context_object_name = 'messages'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Message.objects.filter(recipient=self.request.user).select_related('sender')
+
+    def get(self, request, *args, **kwargs):
+        # Clear any existing messages before rendering the view
+        storage = messages.get_messages(request)
+        storage.used = True
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Clear any existing messages
+        storage = messages.get_messages(self.request)
+        storage.used = True
+        context['unread_messages_count'] = Message.objects.filter(
+            recipient=self.request.user,
+            is_read=False
+        ).count()
+        return context
+
+class SentMessageListView(LoginRequiredMixin, ListView):
+    model = Message
+    template_name = 'inventory/sent_message_list.html'
+    context_object_name = 'messages'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Message.objects.filter(sender=self.request.user).select_related('recipient')
+
+    def get(self, request, *args, **kwargs):
+        # Clear any existing messages before rendering the view
+        storage = messages.get_messages(request)
+        storage.used = True
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Clear any existing messages
+        storage = messages.get_messages(self.request)
+        storage.used = True
+        context['unread_messages_count'] = Message.objects.filter(
+            recipient=self.request.user,
+            is_read=False
+        ).count()
+        return context
+
+class MessageCreateView(LoginRequiredMixin, CreateView):
+    model = Message
+    form_class = MessageForm
+    template_name = 'inventory/message_form.html'
+    success_url = reverse_lazy('inventory:sent_message_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['unread_messages_count'] = Message.objects.filter(
+            recipient=self.request.user,
+            is_read=False
+        ).count()
+        return context
+
+    def form_valid(self, form):
+        form.instance.sender = self.request.user
+        return super().form_valid(form)
+
+class MessageDetailView(LoginRequiredMixin, DetailView):
+    model = Message
+    template_name = 'inventory/message_detail.html'
+    context_object_name = 'message'
+
+    def get_queryset(self):
+        # Only allow viewing messages where user is sender or recipient
+        return Message.objects.filter(
+            Q(sender=self.request.user) | Q(recipient=self.request.user)
+        ).select_related('sender', 'recipient')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['unread_messages_count'] = Message.objects.filter(
+            recipient=self.request.user,
+            is_read=False
+        ).count()
+        return context
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        if self.object.recipient == request.user and not self.object.is_read:
+            Message.objects.filter(pk=self.object.pk).update(is_read=True)
+            self.object.refresh_from_db()
+        return response
+
+class MessageDeleteView(LoginRequiredMixin, DeleteView):
+    model = Message
+    template_name = 'inventory/message_confirm_delete.html'
+
+    def get_queryset(self):
+        # Only allow deleting messages where user is sender or recipient
+        return Message.objects.filter(
+            Q(sender=self.request.user) | Q(recipient=self.request.user)
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['unread_messages_count'] = Message.objects.filter(
+            recipient=self.request.user,
+            is_read=False
+        ).count()
+        return context
+
+    def get_success_url(self):
+        # Redirect to sent messages if user is the sender, otherwise to inbox
+        if self.object.sender == self.request.user:
+            return reverse_lazy('inventory:sent_message_list')
+        return reverse_lazy('inventory:message_list')
+
+    def delete(self, request, *args, **kwargs):
+        # Clear any existing messages before deleting
+        storage = messages.get_messages(request)
+        storage.used = True
+        return super().delete(request, *args, **kwargs)
+
+class MessageReplyView(LoginRequiredMixin, CreateView):
+    model = Message
+    form_class = MessageForm
+    template_name = 'inventory/message_reply.html'
+    success_url = reverse_lazy('inventory:sent_message_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        original_message = get_object_or_404(Message, pk=self.kwargs['pk'])
+        context['original_message'] = original_message
+        context['unread_messages_count'] = Message.objects.filter(
+            recipient=self.request.user,
+            is_read=False
+        ).count()
+        return context
+
+    def form_valid(self, form):
+        original_message = get_object_or_404(Message, pk=self.kwargs['pk'])
+        form.instance.sender = self.request.user
+        form.instance.recipient = original_message.sender
+        form.instance.subject = f"Re: {original_message.subject}"
+        return super().form_valid(form)  

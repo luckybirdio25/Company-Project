@@ -69,6 +69,14 @@ urlpatterns = [
     path('roles/<int:pk>/update/', views.RoleUpdateView.as_view(), name='role_update'),
     path('roles/<int:pk>/delete/', views.RoleDeleteView.as_view(), name='role_delete'),
     
+    # Message URLs
+    path('messages/', views.MessageListView.as_view(), name='message_list'),
+    path('messages/sent/', views.SentMessageListView.as_view(), name='sent_message_list'),
+    path('messages/create/', views.MessageCreateView.as_view(), name='message_create'),
+    path('messages/<int:pk>/', views.MessageDetailView.as_view(), name='message_detail'),
+    path('messages/<int:pk>/reply/', views.MessageReplyView.as_view(), name='message_reply'),
+    path('messages/<int:pk>/delete/', views.MessageDeleteView.as_view(), name='message_delete'),
+    
     # Authentication URLs
     path('logout/', views.logout_view, name='logout'),
 ]

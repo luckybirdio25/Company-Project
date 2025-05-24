@@ -1,0 +1,145 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}New Message{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
+<style>
+    .note-editable {
+        direction: rtl;
+        text-align: right;
+    }
+    .note-editable[dir="ltr"] {
+        text-align: left;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">New Message</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.recipient.id_for_label }}" class="form-label">To</label>
+                            {{ form.recipient }}
+                            {% if form.recipient.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.recipient.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.asset.id_for_label }}" class="form-label">Reference Asset (Optional)</label>
+                            {{ form.asset }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.subject.id_for_label }}" class="form-label">Subject</label>
+                            {{ form.subject }}
+                            {% if form.subject.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.subject.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.content.id_for_label }}" class="form-label">Message</label>
+                            {{ form.content }}
+                            {% if form.content.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.content.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'inventory:message_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Send Message</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('.rich-text-editor').summernote({
+            height: 300,
+            toolbar: [
+                ['style', ['style']],
+                ['font', ['bold', 'italic', 'underline', 'clear']],
+                ['fontname', ['fontname']],
+                ['fontsize', ['fontsize']],
+                ['color', ['color']],
+                ['para', ['ul', 'ol', 'paragraph']],
+                ['height', ['height']],
+                ['insert', ['link']],
+                ['view', ['fullscreen', 'codeview']],
+                ['custom', ['toggleDirection']]
+            ],
+            fontNames: ['Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Helvetica', 'Times New Roman', 'Verdana', 'Tahoma'],
+            fontSizes: ['8', '9', '10', '11', '12', '14', '16', '18', '24', '36'],
+            placeholder: 'اكتب رسالتك هنا ...',
+            callbacks: {
+                onInit: function() {
+                    var editor = $('.note-editable');
+                    editor.attr('dir', 'rtl');
+                }
+            },
+            buttons: {
+                toggleDirection: function(context) {
+                    var ui = $.summernote.ui;
+                    var button = ui.button({
+                        contents: '<i class="fa fa-exchange"></i> Toggle Direction',
+                        tooltip: 'Toggle RTL/LTR for selected text',
+                        click: function() {
+                            var range = context.invoke('editor.getLastRange');
+                            if (range) {
+                                var selectedNode = range.commonAncestor();
+                                var currentDir = $(selectedNode).css('direction');
+                                var newDir = currentDir === 'rtl' ? 'ltr' : 'rtl';
+                                
+                                // Apply direction to the selected node
+                                $(selectedNode).css('direction', newDir);
+                                $(selectedNode).css('text-align', newDir === 'rtl' ? 'right' : 'left');
+                            }
+                        }
+                    });
+                    return button.render();
+                }
+            }
+        });
+    });
+</script>
+{% endblock %} 
