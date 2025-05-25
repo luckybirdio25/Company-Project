@@ -1,97 +1,224 @@
 {% extends 'inventory/base.html' %}
 {% load static %}
 
-{% block title %}{{ object.subject }}{% endblock %}
+{% block title %}Message Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .message-thread {
+        max-width: 100%;
+    }
+    
+    .message {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .original-message {
+        border-left: 4px solid #007bff;
+    }
+    
+    .reply-message {
+        border-left: 4px solid #28a745;
+        margin-left: 40px;
+    }
+    
+    .message-header {
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .message-subject h4 {
+        color: #2c3e50;
+        margin-bottom: 15px;
+    }
+    
+    .message-content {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        margin: 15px 0;
+    }
+    
+    .message-meta {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .message-actions {
+        margin-top: 15px;
+    }
+    
+    .message-references {
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-top: 15px;
+    }
+    
+    .message-references a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    
+    .message-references a:hover {
+        text-decoration: underline;
+    }
+    
+    .btn-reply {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+    
+    .btn-reply:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+
+    .replies-section {
+        margin-top: 30px;
+    }
+
+    .replies-title {
+        color: #28a745;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #28a745;
+    }
+
+    .replies-count {
+        background-color: #28a745;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 10px;
+    }
+
+    #replies-container {
+        transition: all 0.3s ease;
+    }
+
+    .new-reply {
+        animation: slideIn 0.5s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-md-10">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="card-title mb-0">{{ object.subject }}</h3>
+                    <h3 class="card-title mb-0">Message Detail</h3>
                     <div>
-                        {% if user == object.sender %}
-                        <a href="{% url 'inventory:message_reply' object.id %}" class="btn btn-primary">
-                            <i class="fas fa-reply"></i> Reply
+                        <a href="{% url 'inventory:message_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-inbox"></i> Back to Inbox
                         </a>
-                        {% endif %}
-                        <a href="{% url 'inventory:message_delete' object.id %}" class="btn btn-danger">
-                            <i class="fas fa-trash"></i> Delete
+                        <a href="{% url 'inventory:message_reply' message.id %}" class="btn btn-reply">
+                            <i class="fas fa-reply"></i> Reply
                         </a>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="message-header mb-4">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p class="mb-1">
-                                    <strong>From:</strong> {{ object.sender.get_full_name|default:object.sender.username }}
-                                </p>
-                                <p class="mb-1">
-                                    <strong>To:</strong> {{ object.recipient.get_full_name|default:object.recipient.username }}
-                                </p>
-                            </div>
-                            <div class="col-md-6 text-md-end">
-                                <p class="mb-1">
-                                    <strong>Date:</strong> {{ object.created_at|date:"F j, Y, g:i a" }}
-                                </p>
-                                {% if object.is_read %}
-                                <span class="badge bg-success">Read</span>
-                                {% else %}
-                                <span class="badge bg-warning">Unread</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="message-content mb-4">
-                        {{ object.content|safe }}
-                    </div>
-
-                    {% if object.asset %}
-                    <div class="card mt-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">Referenced Asset</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Name:</strong> {{ object.asset.name }}</p>
-                                    <p><strong>Type:</strong> {{ object.asset.asset_type.display_name }}</p>
-                                    <p><strong>Serial Number:</strong> {{ object.asset.serial_number }}</p>
-                                    <p><strong>Status:</strong> {{ object.asset.get_status_display }}</p>
+                    <div class="message-thread">
+                        <!-- Original Message -->
+                        <div class="message original-message">
+                            <div class="message-header d-flex justify-content-between align-items-start">
+                                <div class="message-meta">
+                                    <div><strong>From:</strong> {{ message.sender.get_full_name|default:message.sender.username }}</div>
+                                    <div><strong>To:</strong> {{ message.recipient.get_full_name|default:message.recipient.username }}</div>
+                                    <div><strong>Date:</strong> {{ message.created_at|date:"M d, Y H:i" }}</div>
                                 </div>
-                                <div class="col-md-6">
-                                    <p><strong>Model:</strong> {{ object.asset.model }}</p>
-                                    <p><strong>Manufacturer:</strong> {{ object.asset.manufacturer }}</p>
-                                    <p><strong>Owner:</strong> {{ object.asset.owner.name }}</p>
-                                    {% if object.asset.assigned_to %}
-                                    <p><strong>Assigned To:</strong> {{ object.asset.assigned_to.get_full_name }}</p>
+                                <div class="message-actions">
+                                    {% if message.sender == request.user %}
+                                    <a href="{% url 'inventory:message_delete' message.id %}?source=detail" class="btn btn-danger">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </a>
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="mt-3">
-                                <a href="{% url 'inventory:asset_detail' object.asset.id %}" class="btn btn-primary">
-                                    <i class="fas fa-external-link-alt"></i> View Full Asset Details
-                                </a>
+                            
+                            <div class="message-subject">
+                                <h4>{{ message.subject }}</h4>
                             </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="card-footer">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            {% if request.path == '/messages/sent/' %}
-                            <a href="{% url 'inventory:sent_message_list' %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Return to Sent Messages
-                            </a>
-                            {% else %}
-                            <a href="{% url 'inventory:message_list' %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Return to Inbox
-                            </a>
+                            
+                            <div class="message-content">
+                                {{ message.content|safe }}
+                            </div>
+                            
+                            {% if message.asset or message.employee %}
+                            <div class="message-references">
+                                {% if message.asset %}
+                                <div class="mb-2">
+                                    <strong>Reference Asset:</strong>
+                                    <a href="{% url 'inventory:asset_detail' message.asset.id %}">
+                                        {{ message.asset.name }} ({{ message.asset.asset_type.name }})
+                                    </a>
+                                </div>
+                                {% endif %}
+                                
+                                {% if message.employee %}
+                                <div>
+                                    <strong>Reference Employee:</strong>
+                                    <a href="{% url 'inventory:employee_detail' message.employee.id %}">
+                                        {{ message.employee.name }}
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
                             {% endif %}
+                        </div>
+
+                        <!-- Replies Section -->
+                        <div class="replies-section">
+                            <h3 class="replies-title">
+                                Replies <span class="replies-count">{{ message.replies.count }}</span>
+                            </h3>
+                            
+                            <div id="replies-container">
+                                {% for reply in message.replies.all %}
+                                <div class="message reply-message {% if forloop.last %}new-reply{% endif %}">
+                                    <div class="message-header d-flex justify-content-between align-items-start">
+                                        <div class="message-meta">
+                                            <div><strong>From:</strong> {{ reply.sender.get_full_name|default:reply.sender.username }}</div>
+                                            <div><strong>To:</strong> {{ reply.recipient.get_full_name|default:reply.recipient.username }}</div>
+                                            <div><strong>Date:</strong> {{ reply.created_at|date:"M d, Y H:i" }}</div>
+                                        </div>
+                                        <div class="message-actions">
+                                            {% if reply.sender == request.user %}
+                                            <a href="{% url 'inventory:message_delete' reply.id %}" class="btn btn-sm btn-danger">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="message-content">
+                                        {{ reply.content|safe }}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -99,4 +226,27 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Function to check for new replies
+    function checkForNewReplies() {
+        fetch(`/inventory/messages/${messageId}/check-replies/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.has_new_replies) {
+                    // Reload the page to show new replies
+                    window.location.reload();
+                }
+            })
+            .catch(error => console.error('Error checking for replies:', error));
+    }
+
+    // Get the message ID from the URL
+    const messageId = window.location.pathname.split('/').filter(Boolean).pop();
+
+    // Check for new replies every 5 seconds
+    setInterval(checkForNewReplies, 5000);
+</script>
 {% endblock %} 

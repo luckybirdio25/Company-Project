@@ -9,7 +9,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory, Team, User, Role, Message
 from .forms import EmployeeForm, ITAssetForm, UserForm, UserProfileForm, RoleForm, MessageForm
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 import openpyxl
 from openpyxl import Workbook
 from datetime import datetime, timedelta
@@ -17,6 +17,8 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
+import json
+import time
 
 @login_required
 def home(request):
@@ -1216,7 +1218,6 @@ class UserCreateView(LoginRequiredMixin, CreateView):
             profile = profile_form.save(commit=False)
             profile.user = user
             profile.save()
-            messages.success(self.request, 'User created successfully.')
             return redirect(self.success_url)
         return self.render_to_response(self.get_context_data(form=form))
 
@@ -1240,7 +1241,6 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         if profile_form.is_valid():
             user = form.save()
             profile_form.save()
-            messages.success(self.request, 'User updated successfully.')
             return redirect(self.success_url)
         return self.render_to_response(self.get_context_data(form=form))
 
@@ -1357,23 +1357,22 @@ class MessageListView(LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Message.objects.filter(recipient=self.request.user).select_related('sender')
-
-    def get(self, request, *args, **kwargs):
-        # Clear any existing messages before rendering the view
-        storage = messages.get_messages(request)
-        storage.used = True
-        return super().get(request, *args, **kwargs)
+        return Message.objects.filter(
+            recipient=self.request.user,
+            parent_message__isnull=True  # Only show parent messages
+        ).select_related('sender', 'recipient', 'asset', 'employee')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Clear any existing messages
-        storage = messages.get_messages(self.request)
-        storage.used = True
         context['unread_messages_count'] = Message.objects.filter(
             recipient=self.request.user,
             is_read=False
         ).count()
+        # Check for new replies received by the user
+        context['has_new_replies'] = Message.objects.filter(
+            recipient=self.request.user,
+            replies__has_new_reply=True
+        ).exists()
         return context
 
 class SentMessageListView(LoginRequiredMixin, ListView):
@@ -1383,7 +1382,10 @@ class SentMessageListView(LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Message.objects.filter(sender=self.request.user).select_related('recipient')
+        return Message.objects.filter(
+            sender=self.request.user,
+            parent_message__isnull=True  # Only show parent messages, not replies
+        ).select_related('recipient')
 
     def get(self, request, *args, **kwargs):
         # Clear any existing messages before rendering the view
@@ -1410,6 +1412,7 @@ class MessageCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['users'] = User.objects.filter(is_active=True).exclude(id=self.request.user.id).order_by('username')
         context['unread_messages_count'] = Message.objects.filter(
             recipient=self.request.user,
             is_read=False
@@ -1417,8 +1420,25 @@ class MessageCreateView(LoginRequiredMixin, CreateView):
         return context
 
     def form_valid(self, form):
-        form.instance.sender = self.request.user
-        return super().form_valid(form)
+        try:
+            recipient_id = self.request.POST.get('recipient')
+            if not recipient_id:
+                messages.error(self.request, 'Please select a recipient.')
+                return self.form_invalid(form)
+            
+            recipient = get_object_or_404(User, id=recipient_id)
+            message = form.save(commit=False)
+            message.sender = self.request.user
+            message.recipient = recipient
+            message.save()
+            return redirect(self.success_url)
+        except Exception as e:
+            messages.error(self.request, f'Error sending message: {str(e)}')
+            return self.form_invalid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'There was an error sending your message. Please check the form and try again.')
+        return self.render_to_response(self.get_context_data(form=form))
 
 class MessageDetailView(LoginRequiredMixin, DetailView):
     model = Message
@@ -1426,13 +1446,38 @@ class MessageDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'message'
 
     def get_queryset(self):
-        # Only allow viewing messages where user is sender or recipient
         return Message.objects.filter(
             Q(sender=self.request.user) | Q(recipient=self.request.user)
-        ).select_related('sender', 'recipient')
+        ).select_related('sender', 'recipient', 'asset', 'employee')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        message = self.get_object()
+        
+        # Mark message as read if the current user is the recipient
+        if self.request.user == message.recipient and not message.is_read:
+            message.mark_as_read()
+        
+        # Get all replies to this message
+        replies = message.get_replies()
+        
+        # Mark replies as read and clear has_new_reply flag when viewing the message
+        if self.request.user == message.recipient:
+            # Mark all replies as read and clear has_new_reply flag
+            Message.objects.filter(
+                parent_message=message,
+                recipient=self.request.user,
+                is_read=False
+            ).update(
+                is_read=True,
+                has_new_reply=False
+            )
+            
+            # Also clear has_new_reply flag on the parent message
+            message.has_new_reply = False
+            message.save(update_fields=['has_new_reply'])
+        
+        context['replies'] = replies
         context['unread_messages_count'] = Message.objects.filter(
             recipient=self.request.user,
             is_read=False
@@ -1451,7 +1496,7 @@ class MessageDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'inventory/message_confirm_delete.html'
 
     def get_queryset(self):
-        # Only allow deleting messages where user is sender or recipient
+        # Allow deleting messages where user is either sender or recipient
         return Message.objects.filter(
             Q(sender=self.request.user) | Q(recipient=self.request.user)
         )
@@ -1462,25 +1507,46 @@ class MessageDeleteView(LoginRequiredMixin, DeleteView):
             recipient=self.request.user,
             is_read=False
         ).count()
+        # Add the source URL to the context
+        context['source_url'] = self.request.GET.get('source', 'inbox')
         return context
 
     def get_success_url(self):
-        # Redirect to sent messages if user is the sender, otherwise to inbox
-        if self.object.sender == self.request.user:
+        # Get the source from the URL parameter
+        source = self.request.GET.get('source', 'inbox')
+        
+        if source == 'sent':
             return reverse_lazy('inventory:sent_message_list')
+        elif source == 'detail':
+            # If deleting from detail view, redirect back to the message
+            message = self.get_object()
+            if message.parent_message:
+                return reverse_lazy('inventory:message_detail', kwargs={'pk': message.parent_message.id})
+            return reverse_lazy('inventory:message_detail', kwargs={'pk': message.id})
         return reverse_lazy('inventory:message_list')
 
     def delete(self, request, *args, **kwargs):
-        # Clear any existing messages before deleting
-        storage = messages.get_messages(request)
-        storage.used = True
-        return super().delete(request, *args, **kwargs)
+        message = self.get_object()
+        
+        # Check if user is either sender or recipient
+        if message.sender != request.user and message.recipient != request.user:
+            messages.error(request, 'You can only delete your own messages.')
+            return redirect('inventory:message_list')
+        
+        # If this is a parent message, only delete this specific message
+        # Don't delete replies
+        if not message.parent_message:
+            message.delete()
+        else:
+            # If this is a reply, just delete the reply
+            message.delete()
+        
+        return redirect(self.get_success_url())
 
 class MessageReplyView(LoginRequiredMixin, CreateView):
     model = Message
     form_class = MessageForm
     template_name = 'inventory/message_reply.html'
-    success_url = reverse_lazy('inventory:sent_message_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1492,9 +1558,91 @@ class MessageReplyView(LoginRequiredMixin, CreateView):
         ).count()
         return context
 
-    def form_valid(self, form):
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
         original_message = get_object_or_404(Message, pk=self.kwargs['pk'])
-        form.instance.sender = self.request.user
-        form.instance.recipient = original_message.sender
-        form.instance.subject = f"Re: {original_message.subject}"
-        return super().form_valid(form)  
+        kwargs['original_message'] = original_message
+        return kwargs
+
+    def form_valid(self, form):
+        try:
+            original_message = get_object_or_404(Message, pk=self.kwargs['pk'])
+            message = form.save(commit=False)
+            message.sender = self.request.user
+            message.recipient = original_message.sender
+            message.parent_message = original_message
+            message.has_new_reply = True  # Set has_new_reply on the reply
+            message.save()
+
+            # Set has_new_reply flag on the parent message
+            original_message.has_new_reply = True
+            original_message.save(update_fields=['has_new_reply'])
+
+            # Redirect back to the message detail page
+            return redirect('inventory:message_detail', pk=original_message.id)
+        except Exception as e:
+            messages.error(self.request, f'Error sending reply: {str(e)}')
+            return self.form_invalid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'There was an error sending your reply. Please check the form and try again.')
+        return self.render_to_response(self.get_context_data(form=form))
+
+def message_notifications(request):
+    """Stream message notifications using Server-Sent Events."""
+    def event_stream():
+        last_check = time.time()
+        while True:
+            # Check for new messages
+            new_messages = Message.objects.filter(
+                recipient=request.user,
+                created_at__gt=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_check))
+            ).exists()
+            
+            if new_messages:
+                data = json.dumps({'has_new_messages': True})
+                yield f"data: {data}\n\n"
+            
+            last_check = time.time()
+            time.sleep(5)  # Check every 5 seconds
+    
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
+@login_required
+def check_replies(request, pk):
+    """Check if there are new replies to a message."""
+    message = get_object_or_404(Message, pk=pk)
+    
+    # Get the last reply timestamp from the request
+    last_check = request.GET.get('last_check')
+    if last_check:
+        try:
+            last_check = datetime.fromisoformat(last_check.replace('Z', '+00:00'))
+            has_new_replies = message.replies.filter(created_at__gt=last_check).exists()
+        except (ValueError, TypeError):
+            has_new_replies = False
+    else:
+        has_new_replies = False
+    
+    return JsonResponse({'has_new_replies': has_new_replies})
+
+def message_context_processor(request):
+    """Add message-related context to all templates."""
+    if request.user.is_authenticated:
+        return {
+            'unread_messages_count': Message.objects.filter(
+                recipient=request.user,
+                is_read=False
+            ).count(),
+            'has_new_replies': Message.objects.filter(
+                recipient=request.user,
+                replies__has_new_reply=True
+            ).exists()
+        }
+    return {
+        'unread_messages_count': 0,
+        'has_new_replies': False
+    }  

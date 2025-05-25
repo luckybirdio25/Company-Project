@@ -336,33 +336,41 @@ class RoleForm(forms.ModelForm):
 class MessageForm(forms.ModelForm):
     class Meta:
         model = Message
-        fields = ['recipient', 'subject', 'content', 'asset']
+        fields = ['subject', 'content', 'asset', 'employee']
         widgets = {
-            'recipient': forms.Select(attrs={'class': 'form-select'}),
-            'subject': forms.TextInput(attrs={'class': 'form-control'}),
+            'subject': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter message subject'
+            }),
             'content': forms.Textarea(attrs={
                 'class': 'form-control rich-text-editor',
                 'rows': 10,
-                'data-provider': 'summernote'
+                'placeholder': 'Enter your message'
             }),
             'asset': forms.Select(attrs={'class': 'form-select'}),
+            'employee': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
+        self.original_message = kwargs.pop('original_message', None)
         super().__init__(*args, **kwargs)
-        # Only show active users in the recipient dropdown
-        self.fields['recipient'].queryset = User.objects.filter(is_active=True)
-        self.fields['recipient'].empty_label = "Select Recipient"
         
         # Configure asset field
         self.fields['asset'].queryset = ITAsset.objects.all().order_by('name')
         self.fields['asset'].empty_label = "Select an Asset (Optional)"
         self.fields['asset'].required = False
         
-        # Make recipient and subject required only for new messages
-        if not self.instance.pk:
-            self.fields['recipient'].required = True
-            self.fields['subject'].required = True
-        else:
-            self.fields['recipient'].required = False
-            self.fields['subject'].required = False 
+        # Configure employee field
+        self.fields['employee'].queryset = Employee.objects.filter(is_active=True).order_by('first_name', 'last_name')
+        self.fields['employee'].empty_label = "Select an Employee (Optional)"
+        self.fields['employee'].required = False
+        
+        # Make subject and content required
+        self.fields['subject'].required = True
+        self.fields['content'].required = True
+
+        # If this is a reply, set the initial values
+        if self.original_message:
+            self.fields['subject'].initial = f"Re: {self.original_message.subject}"
+            self.fields['asset'].initial = self.original_message.asset
+            self.fields['employee'].initial = self.original_message.employee 

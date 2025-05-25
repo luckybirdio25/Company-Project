@@ -76,6 +76,8 @@ urlpatterns = [
     path('messages/<int:pk>/', views.MessageDetailView.as_view(), name='message_detail'),
     path('messages/<int:pk>/reply/', views.MessageReplyView.as_view(), name='message_reply'),
     path('messages/<int:pk>/delete/', views.MessageDeleteView.as_view(), name='message_delete'),
+    path('messages/<int:pk>/check-replies/', views.check_replies, name='check_replies'),
+    path('messages/notifications/', views.message_notifications, name='message_notifications'),
     
     # Authentication URLs
     path('logout/', views.logout_view, name='logout'),

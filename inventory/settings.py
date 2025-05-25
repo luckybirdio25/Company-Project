@@ -27,6 +27,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'inventory.context_processors.unread_messages',
+                'inventory.views.message_context_processor',
             ],
         },
     },

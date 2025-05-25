@@ -1,7 +1,7 @@
 {% extends 'inventory/base.html' %}
 {% load static %}
 
-{% block title %}Messages{% endblock %}
+{% block title %}Inbox{% endblock %}
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
@@ -9,94 +9,117 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3">Messages</h1>
-        <div>
-            <a href="{% url 'inventory:sent_message_list' %}" class="btn btn-info me-2">
-                <i class="fas fa-paper-plane"></i> Sent Messages
-            </a>
-            <a href="{% url 'inventory:message_create' %}" class="btn btn-primary">
-                <i class="fas fa-plus"></i> New Message
-            </a>
-        </div>
-    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Inbox</h3>
+                    <div>
+                        <a href="{% url 'inventory:sent_message_list' %}" class="btn btn-secondary me-2">Sent Messages</a>
+                        <a href="{% url 'inventory:message_create' %}" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> New Message
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>From</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for message in messages %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'inventory:message_detail' message.id %}" class="text-decoration-none">
+                                            {{ message.subject }}
+                                            {% if message.has_new_reply %}
+                                            <span class="badge bg-warning">New Reply</span>
+                                            {% endif %}
+                                        </a>
+                                    </td>
+                                    <td>{{ message.sender.get_full_name|default:message.sender.username }}</td>
+                                    <td>{{ message.created_at|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        {% if not message.is_read %}
+                                        <span class="badge bg-danger">Unread</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Read</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'inventory:message_detail' message.id %}" class="btn btn-sm btn-info">View</a>
+                                            <a href="{% url 'inventory:message_delete' message.id %}?source=inbox" class="btn btn-sm btn-danger">Delete</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
 
-    {% if messages %}
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>From</th>
-                            <th>Subject</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for message in messages %}
-                        <tr {% if not message.is_read %}class="table-primary"{% endif %}>
-                            <td>{{ message.sender.get_full_name|default:message.sender.username }}</td>
-                            <td>
-                                <a href="{% url 'inventory:message_detail' message.pk %}" class="text-decoration-none">
-                                    {{ message.subject }}
+                    {% if is_paginated %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1" aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
                                 </a>
-                            </td>
-                            <td>{{ message.created_at|date:"M d, Y H:i" }}</td>
-                            <td>
-                                {% if message.is_read %}
-                                <span class="badge bg-success">Read</span>
-                                {% else %}
-                                <span class="badge bg-warning">Unread</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <a href="{% url 'inventory:message_detail' message.pk %}" class="btn btn-sm btn-info">
-                                    <i class="fas fa-eye"></i>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
                                 </a>
-                                <a href="{% url 'inventory:message_delete' message.pk %}" class="btn btn-sm btn-danger">
-                                    <i class="fas fa-trash"></i>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
                                 </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="text-center py-5">
+                        <h4 class="text-muted">No messages in your inbox</h4>
+                        <a href="{% url 'inventory:message_create' %}" class="btn btn-primary mt-3">Send a Message</a>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-
-    {% if is_paginated %}
-    <nav aria-label="Page navigation" class="mt-4">
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
-            </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
-                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-            </li>
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
-
-    {% else %}
-    <div class="alert alert-info">
-        No messages found. <a href="{% url 'inventory:message_create' %}">Send a message</a>.
-    </div>
-    {% endif %}
 </div>
 {% endblock %}
 

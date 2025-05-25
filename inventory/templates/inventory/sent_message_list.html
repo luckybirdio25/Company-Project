@@ -51,7 +51,7 @@
                                 <a href="{% url 'inventory:message_detail' message.id %}" class="btn btn-sm btn-info">
                                     <i class="fas fa-eye"></i> View
                                 </a>
-                                <a href="{% url 'inventory:message_delete' message.id %}" class="btn btn-sm btn-danger">
+                                <a href="{% url 'inventory:message_delete' message.id %}?source=sent" class="btn btn-sm btn-danger">
                                     <i class="fas fa-trash"></i> Delete
                                 </a>
                             </td>

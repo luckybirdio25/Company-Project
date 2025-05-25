@@ -17,40 +17,58 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Reply to Message</h3>
+                    <h3 class="card-title mb-0">Reply to Message</h3>
                 </div>
                 <div class="card-body">
+                    <!-- Original Message -->
+                    <div class="mb-4">
+                        <h5>Original Message:</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <p><strong>From:</strong> {{ original_message.sender.get_full_name|default:original_message.sender.username }}</p>
+                                <p><strong>Subject:</strong> {{ original_message.subject }}</p>
+                                <p><strong>Date:</strong> {{ original_message.created_at|date:"M d, Y H:i" }}</p>
+                                <hr>
+                                <div class="message-content">
+                                    {{ original_message.content|safe }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reply Form -->
                     <form method="post">
                         {% csrf_token %}
-                        
-                        {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.non_field_errors %}
-                            {{ error }}
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-
                         <div class="mb-3">
-                            <label for="{{ form.content.id_for_label }}" class="form-label">Your Reply</label>
-                            {{ form.content }}
-                            {% if form.content.errors %}
+                            <label for="{{ form.subject.id_for_label }}" class="form-label">Subject:</label>
+                            {{ form.subject }}
+                            {% if form.subject.errors %}
                             <div class="invalid-feedback d-block">
-                                {% for error in form.content.errors %}
-                                {{ error }}
-                                {% endfor %}
+                                {{ form.subject.errors }}
                             </div>
                             {% endif %}
                         </div>
-
+                        <div class="mb-3">
+                            <label for="{{ form.content.id_for_label }}" class="form-label">Your Reply:</label>
+                            {{ form.content }}
+                            {% if form.content.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.content.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'inventory:message_detail' original_message.id %}" class="btn btn-secondary">Cancel</a>
-                            <button type="submit" class="btn btn-primary">Send Reply</button>
+                            <a href="{% url 'inventory:message_detail' original_message.id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to Message
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Send Reply
+                            </button>
                         </div>
                     </form>
                 </div>
