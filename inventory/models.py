@@ -3,11 +3,18 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.validators import RegexValidator
 
+def get_cairo_time():
+    return timezone.now() + timezone.timedelta(hours=3)
+
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(default=get_cairo_time)
+    updated_at = models.DateTimeField(default=get_cairo_time)
+
+    def save(self, *args, **kwargs):
+        self.updated_at = get_cairo_time()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -193,7 +200,7 @@ class ITAsset(models.Model):
 
 class AssetHistory(models.Model):
     asset = models.ForeignKey(ITAsset, on_delete=models.CASCADE, related_name='history')
-    date = models.DateTimeField(auto_now_add=True)
+    date = models.DateTimeField(default=get_cairo_time)
     status = models.CharField(max_length=20, choices=ITAsset.STATUS_CHOICES)
     assigned_to = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -249,12 +256,12 @@ class Message(models.Model):
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
     subject = models.CharField(max_length=200)
     content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=get_cairo_time)
     is_read = models.BooleanField(default=False)
     parent_message = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
-    asset = models.ForeignKey(ITAsset, on_delete=models.SET_NULL, null=True, blank=True)
-    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True)
     has_new_reply = models.BooleanField(default=False)
+    asset = models.ForeignKey(ITAsset, on_delete=models.SET_NULL, null=True, blank=True, related_name='messages')
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='messages')
 
     class Meta:
         ordering = ['-created_at']

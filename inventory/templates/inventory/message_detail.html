@@ -147,7 +147,7 @@
                                 <div class="message-meta">
                                     <div><strong>From:</strong> {{ message.sender.get_full_name|default:message.sender.username }}</div>
                                     <div><strong>To:</strong> {{ message.recipient.get_full_name|default:message.recipient.username }}</div>
-                                    <div><strong>Date:</strong> {{ message.created_at|date:"M d, Y H:i" }}</div>
+                                    <div><strong>Date:</strong> {{ message.created_at|date:"Y-m-d h:i A" }}</div>
                                 </div>
                                 <div class="message-actions">
                                     {% if message.sender == request.user %}
@@ -202,7 +202,7 @@
                                         <div class="message-meta">
                                             <div><strong>From:</strong> {{ reply.sender.get_full_name|default:reply.sender.username }}</div>
                                             <div><strong>To:</strong> {{ reply.recipient.get_full_name|default:reply.recipient.username }}</div>
-                                            <div><strong>Date:</strong> {{ reply.created_at|date:"M d, Y H:i" }}</div>
+                                            <div><strong>Date:</strong> {{ reply.created_at|date:"Y-m-d h:i A" }}</div>
                                         </div>
                                         <div class="message-actions">
                                             {% if reply.sender == request.user %}

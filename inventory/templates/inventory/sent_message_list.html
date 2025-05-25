@@ -39,7 +39,7 @@
                                     {{ message.subject }}
                                 </a>
                             </td>
-                            <td>{{ message.created_at|date:"M d, Y H:i" }}</td>
+                            <td>{{ message.created_at|date:"Y-m-d h:i A" }}</td>
                             <td>
                                 {% if message.is_read %}
                                 <span class="badge bg-success">Read</span>

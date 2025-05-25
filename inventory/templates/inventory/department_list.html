@@ -26,6 +26,7 @@
                     <th>Name</th>
                     <th>Description</th>
                     <th>Created At</th>
+                    <th>Updated At</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -34,7 +35,8 @@
                 <tr>
                     <td>{{ department.name }}</td>
                     <td>{{ department.description|default:"-" }}</td>
-                    <td>{{ department.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ department.created_at|date:"Y-m-d h:i A" }}</td>
+                    <td>{{ department.updated_at|date:"Y-m-d h:i A" }}</td>
                     <td>
                         <a href="{% url 'inventory:department_update' department.pk %}" class="btn btn-sm btn-info">
                             <i class="fas fa-edit"></i> Edit

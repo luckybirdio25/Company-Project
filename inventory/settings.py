@@ -4,6 +4,12 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Time zone setting
+TIME_ZONE = 'Africa/Cairo'
+USE_TZ = True
+USE_I18N = True
+USE_L10N = True
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -13,6 +19,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'inventory.middleware.UserActivityMiddleware',
+    'django.middleware.timezone.TimezoneMiddleware',
 ]
 
 TEMPLATES = [
