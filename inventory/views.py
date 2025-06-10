@@ -3,8 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory, Team, User, Role, Message
@@ -19,6 +19,10 @@ from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
 import json
 import time
+from django.core.exceptions import PermissionDenied
+import logging
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def home(request):
@@ -79,121 +83,116 @@ def home(request):
     }
     return render(request, 'inventory/home.html', context)
 
-@login_required
-def employee_list(request):
-    # Get search and filter parameters
-    search_query = request.GET.get('search', '')
-    department_id = request.GET.get('department', '')
-    company_id = request.GET.get('company', '')
-    
-    # Start with all employees
-    employees = Employee.objects.all()
-    
-    # Apply search filter if provided
-    if search_query:
-        employees = employees.filter(
-            Q(first_name__icontains=search_query) |
-            Q(last_name__icontains=search_query) |
-            Q(email__icontains=search_query) |
-            Q(employee_id__icontains=search_query) |
-            Q(national_id__icontains=search_query)  # Add national_id to search
-        )
-    
-    # Apply department filter if provided
-    if department_id:
-        employees = employees.filter(department_id=department_id)
-    
-    # Apply company filter if provided
-    if company_id:
-        employees = employees.filter(company_id=company_id)
-    
-    # Get all departments for filter dropdown
-    departments = Department.objects.all()
-    
-    # Get all companies for filter dropdown
-    companies = OwnerCompany.objects.all()
-    
-    # Paginate the results
-    paginator = Paginator(employees, 10)  # Show 10 employees per page
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
-    
-    # Get the current page number
-    current_page = page_obj.number
-    total_pages = paginator.num_pages
-    
-    # Calculate the range of page numbers to show
-    if total_pages <= 5:
-        page_range = range(1, total_pages + 1)
-    else:
-        if current_page <= 3:
-            page_range = range(1, 6)
-        elif current_page >= total_pages - 2:
-            page_range = range(total_pages - 4, total_pages + 1)
-        else:
-            page_range = range(current_page - 2, current_page + 3)
-    
-    context = {
-        'employees': page_obj,
-        'departments': departments,
-        'companies': companies,
-        'is_paginated': page_obj.has_other_pages(),
-        'page_obj': page_obj,
-        'page_range': page_range,
-        'current_page': current_page,
-        'total_pages': total_pages,
-    }
-    
-    return render(request, 'inventory/employee_list.html', context)
+class EmployeeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = Employee
+    template_name = 'inventory/employee_list.html'
+    context_object_name = 'employees'
+    permission_required = 'inventory.view_employee'
+    paginate_by = 10
 
-@login_required
-def employee_create(request):
-    if request.method == 'POST':
-        form = EmployeeForm(request.POST)
-        if form.is_valid():
-            employee = form.save()
-            messages.success(request, f'Employee "{employee.get_full_name()}" was successfully created.')
-            return redirect('inventory:employee_detail', pk=employee.pk)
-    else:
-        form = EmployeeForm()
-    
-    return render(request, 'inventory/employee_form.html', {'form': form})
+    def get_queryset(self):
+        # Debug logging
+        logger.debug(f"User {self.request.user.username} attempting to access employee list")
+        logger.debug(f"User permissions: {list(self.request.user.get_all_permissions())}")
+        logger.debug(f"User groups: {list(self.request.user.groups.all())}")
+        if hasattr(self.request.user, 'profile'):
+            logger.debug(f"User role: {self.request.user.profile.role}")
+            if self.request.user.profile.role:
+                logger.debug(f"Role permissions: {self.request.user.profile.role.permissions}")
+                logger.debug(f"Has view_employee permission: {self.request.user.profile.has_permission('view_employee')}")
+        
+        queryset = super().get_queryset()
+        
+        # Get search and filter parameters
+        search_query = self.request.GET.get('search', '')
+        department_id = self.request.GET.get('department', '')
+        company_id = self.request.GET.get('company', '')
+        
+        # Apply search filter if provided
+        if search_query:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query) |
+                Q(email__icontains=search_query) |
+                Q(employee_id__icontains=search_query) |
+                Q(national_id__icontains=search_query)
+            )
+        
+        # Apply department filter if provided
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+        
+        # Apply company filter if provided
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+        
+        return queryset
 
-@login_required
-def employee_detail(request, pk):
-    employee = get_object_or_404(Employee, pk=pk)
-    return render(request, 'inventory/employee_detail.html', {'employee': employee})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['departments'] = Department.objects.all()
+        context['companies'] = OwnerCompany.objects.all()
+        # Add permission flags for UI elements
+        context['can_add_employee'] = self.request.user.has_perm('inventory.add_employee')
+        context['can_change_employee'] = self.request.user.has_perm('inventory.change_employee')
+        context['can_delete_employee'] = self.request.user.has_perm('inventory.delete_employee')
+        return context
 
-@login_required
-def employee_update(request, pk):
-    employee = get_object_or_404(Employee, pk=pk)
-    
-    if request.method == 'POST':
-        form = EmployeeForm(request.POST, instance=employee)
-        if form.is_valid():
-            employee = form.save()
-            messages.success(request, f'Employee "{employee.get_full_name()}" was successfully updated.')
-            return redirect('inventory:employee_detail', pk=employee.pk)
-    else:
-        form = EmployeeForm(instance=employee)
-    
-    return render(request, 'inventory/employee_form.html', {'form': form, 'employee': employee})
+class EmployeeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    model = Employee
+    template_name = 'inventory/employee_detail.html'
+    context_object_name = 'employee'
+    permission_required = 'inventory.view_employee'
 
-@login_required
-def employee_delete(request, pk):
-    employee = get_object_or_404(Employee, pk=pk)
-    
-    if request.method == 'POST':
-        employee_name = employee.get_full_name()
-        employee.delete()
-        messages.success(request, f'Employee "{employee_name}" was successfully deleted.')
-        return redirect('inventory:employee_list')
-    
-    return render(request, 'inventory/employee_confirm_delete.html', {'employee': employee})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['can_change_employee'] = self.request.user.has_perm('inventory.change_employee')
+        context['can_delete_employee'] = self.request.user.has_perm('inventory.delete_employee')
+        return context
+
+class EmployeeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    model = Employee
+    form_class = EmployeeForm
+    template_name = 'inventory/employee_form.html'
+    permission_required = 'inventory.add_employee'
+    success_url = reverse_lazy('inventory:employee_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Employee created successfully.')
+        return super().form_valid(form)
+
+class EmployeeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    model = Employee
+    form_class = EmployeeForm
+    template_name = 'inventory/employee_form.html'
+    permission_required = 'inventory.change_employee'
+    success_url = reverse_lazy('inventory:employee_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Employee updated successfully.')
+        return super().form_valid(form)
+
+class EmployeeDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    model = Employee
+    template_name = 'inventory/employee_confirm_delete.html'
+    permission_required = 'inventory.delete_employee'
+    success_url = reverse_lazy('inventory:employee_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'Employee deleted successfully.')
+        return super().delete(request, *args, **kwargs)
 
 @login_required
 def employee_toggle_status(request, pk):
-    """Toggle employee's active status."""
+    # Debug logging
+    logger.debug(f"User {request.user.username} attempting to toggle employee status")
+    logger.debug(f"User permissions: {request.user.get_all_permissions()}")
+    
+    if not request.user.has_perm('inventory.change_employee'):
+        logger.warning(f"User {request.user.username} denied access to toggle employee status - missing change_employee permission")
+        messages.error(request, 'You do not have permission to change employee status.')
+        return redirect('inventory:home')
+    
     employee = get_object_or_404(Employee, pk=pk)
     
     if request.method == 'POST':
@@ -247,13 +246,25 @@ def asset_assign(request):
     
     return render(request, 'inventory/asset_assign.html', context)
 
-class ITAssetListView(LoginRequiredMixin, ListView):
+class ITAssetListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = ITAsset
     template_name = 'inventory/asset_list.html'
     context_object_name = 'assets'
     paginate_by = 10
+    permission_required = 'inventory.view_asset'
 
     def get_queryset(self):
+        # Debug logging
+        logger.debug(f"User {self.request.user.username} attempting to access asset list")
+        logger.debug(f"User permissions: {list(self.request.user.get_all_permissions())}")
+        logger.debug(f"User groups: {list(self.request.user.groups.all())}")
+        if hasattr(self.request.user, 'profile'):
+            logger.debug(f"User role: {self.request.user.profile.role}")
+            if self.request.user.profile.role:
+                logger.debug(f"Role permissions: {self.request.user.profile.role.permissions}")
+                logger.debug(f"Has view_asset permission: {self.request.user.profile.has_permission('view_asset')}")
+                logger.debug(f"Permission check via has_perm: {self.request.user.has_perm('inventory.view_asset')}")
+        
         queryset = super().get_queryset()
         
         # Get filter parameters
@@ -292,35 +303,39 @@ class ITAssetListView(LoginRequiredMixin, ListView):
         context['manufacturers'] = ITAsset.objects.exclude(manufacturer='').values_list('manufacturer', flat=True).distinct()
         return context
 
-class ITAssetDetailView(LoginRequiredMixin, DetailView):
+class ITAssetDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = ITAsset
     template_name = 'inventory/asset_detail.html'
     context_object_name = 'asset'
+    permission_required = 'inventory.view_asset'
 
-class ITAssetCreateView(LoginRequiredMixin, CreateView):
+class ITAssetCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = ITAsset
     form_class = ITAssetForm
     template_name = 'inventory/asset_form.html'
     success_url = reverse_lazy('inventory:asset_list')
+    permission_required = 'inventory.add_asset'
 
     def form_valid(self, form):
         messages.success(self.request, 'IT Asset created successfully.')
         return super().form_valid(form)
 
-class ITAssetUpdateView(LoginRequiredMixin, UpdateView):
+class ITAssetUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = ITAsset
     form_class = ITAssetForm
     template_name = 'inventory/asset_form.html'
     success_url = reverse_lazy('inventory:asset_list')
+    permission_required = 'inventory.change_asset'
 
     def form_valid(self, form):
         messages.success(self.request, 'IT Asset updated successfully.')
         return super().form_valid(form)
 
-class ITAssetDeleteView(LoginRequiredMixin, DeleteView):
+class ITAssetDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = ITAsset
     template_name = 'inventory/asset_confirm_delete.html'
     success_url = reverse_lazy('inventory:asset_list')
+    permission_required = 'inventory.delete_asset'
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'IT Asset deleted successfully.')
@@ -1188,19 +1203,21 @@ def my_teams(request):
     })
 
 # User Management Views
-class UserListView(LoginRequiredMixin, ListView):
+class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = User
     template_name = 'inventory/user_list.html'
     context_object_name = 'users'
+    permission_required = 'inventory.view_user'
 
     def get_queryset(self):
-        return User.objects.select_related('profile', 'profile__role', 'profile__employee')
+        return User.objects.select_related('profile', 'profile__role', 'profile__department', 'profile__team')
 
-class UserCreateView(LoginRequiredMixin, CreateView):
+class UserCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = User
     form_class = UserForm
     template_name = 'inventory/user_form.html'
     success_url = reverse_lazy('inventory:user_list')
+    permission_required = 'inventory.add_user'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1218,14 +1235,16 @@ class UserCreateView(LoginRequiredMixin, CreateView):
             profile = profile_form.save(commit=False)
             profile.user = user
             profile.save()
+            messages.success(self.request, 'User created successfully.')
             return redirect(self.success_url)
         return self.render_to_response(self.get_context_data(form=form))
 
-class UserUpdateView(LoginRequiredMixin, UpdateView):
+class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = User
     form_class = UserForm
     template_name = 'inventory/user_form.html'
     success_url = reverse_lazy('inventory:user_list')
+    permission_required = 'inventory.change_user'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1241,13 +1260,15 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         if profile_form.is_valid():
             user = form.save()
             profile_form.save()
+            messages.success(self.request, 'User updated successfully.')
             return redirect(self.success_url)
         return self.render_to_response(self.get_context_data(form=form))
 
-class UserDeleteView(LoginRequiredMixin, DeleteView):
+class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = User
     template_name = 'inventory/user_confirm_delete.html'
     success_url = reverse_lazy('inventory:user_list')
+    permission_required = 'inventory.delete_user'
 
     def get(self, request, *args, **kwargs):
         # Check if this is the last user
@@ -1259,11 +1280,15 @@ class UserDeleteView(LoginRequiredMixin, DeleteView):
         user_to_delete = self.get_object()
         
         # Check if trying to delete an admin user
-        if user_to_delete.profile.role and user_to_delete.profile.role.name == 'Administrator':
-            # Only allow deletion if the current user is also an admin
-            if not request.user.profile.role or request.user.profile.role.name != 'Administrator':
-                messages.error(request, 'Only administrators can delete administrator users.')
-                return redirect('inventory:user_list')
+        try:
+            if user_to_delete.profile and user_to_delete.profile.role and user_to_delete.profile.role.name == 'Administrator':
+                # Only allow deletion if the current user is also an admin
+                if not request.user.profile or not request.user.profile.role or request.user.profile.role.name != 'Administrator':
+                    messages.error(request, 'Only administrators can delete administrator users.')
+                    return redirect('inventory:user_list')
+        except:
+            # If user has no profile, allow deletion
+            pass
 
         return super().get(request, *args, **kwargs)
 
@@ -1277,45 +1302,101 @@ class UserDeleteView(LoginRequiredMixin, DeleteView):
         user_to_delete = self.get_object()
         
         # Check if trying to delete an admin user
-        if user_to_delete.profile.role and user_to_delete.profile.role.name == 'Administrator':
-            # Only allow deletion if the current user is also an admin
-            if not request.user.profile.role or request.user.profile.role.name != 'Administrator':
-                messages.error(request, 'Only administrators can delete administrator users.')
-                return redirect('inventory:user_list')
+        try:
+            if user_to_delete.profile and user_to_delete.profile.role and user_to_delete.profile.role.name == 'Administrator':
+                # Only allow deletion if the current user is also an admin
+                if not request.user.profile or not request.user.profile.role or request.user.profile.role.name != 'Administrator':
+                    messages.error(request, 'Only administrators can delete administrator users.')
+                    return redirect('inventory:user_list')
+        except:
+            # If user has no profile, allow deletion
+            pass
             
         messages.success(request, 'User deleted successfully.')
         return super().delete(request, *args, **kwargs)
 
 # Role Management Views
-class RoleListView(LoginRequiredMixin, ListView):
+class RoleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = Role
     template_name = 'inventory/role_list.html'
     context_object_name = 'roles'
+    permission_required = 'inventory.view_role'
 
-class RoleCreateView(LoginRequiredMixin, CreateView):
+class RoleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Role
     form_class = RoleForm
     template_name = 'inventory/role_form.html'
     success_url = reverse_lazy('inventory:role_list')
+    permission_required = 'inventory.add_role'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Pass the full permission set to the template for rendering checkboxes
+        all_permissions = Role.get_all_defined_permissions()
+        context['permissions'] = {
+            category: list(perms.items())
+            for category, perms in all_permissions.items()
+        }
+        return context
 
     def form_valid(self, form):
+        # Manually process the form and permissions to prevent errors.
+        # This gives us full control over the instance creation and redirection.
+        self.object = form.save(commit=False)
+        
+        permissions = {}
+        permission_values = self.request.POST.getlist('permissions')
+        
+        for perm in permission_values:
+            permissions[perm] = True
+        
+        self.object.permissions = permissions
+        self.object.save()
+        
         messages.success(self.request, 'Role created successfully.')
-        return super().form_valid(form)
+        return redirect(self.get_success_url())
 
-class RoleUpdateView(LoginRequiredMixin, UpdateView):
+class RoleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Role
     form_class = RoleForm
-    template_name = 'inventory/role_form.html'
+    template_name = 'inventory/role_form.html' # Use the unified template
+    permission_required = 'inventory.change_role'
     success_url = reverse_lazy('inventory:role_list')
 
-    def form_valid(self, form):
-        messages.success(self.request, 'Role updated successfully.')
-        return super().form_valid(form)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get permissions from the single source of truth in the Role model
+        all_permissions = Role.get_all_defined_permissions()
+        
+        # The template expects a list of tuples for iteration, so we convert the inner dicts
+        context['permissions'] = {
+            category: list(perms.items())
+            for category, perms in all_permissions.items()
+        }
+        
+        return context
 
-class RoleDeleteView(LoginRequiredMixin, DeleteView):
+    def form_valid(self, form):
+        # Manually process the form and permissions to ensure they are saved correctly.
+        self.object = form.save(commit=False)
+        
+        permissions = {}
+        permission_values = self.request.POST.getlist('permissions')
+        
+        for perm in permission_values:
+            permissions[perm] = True
+        
+        self.object.permissions = permissions
+        self.object.save()
+        
+        messages.success(self.request, 'Role updated successfully.')
+        return redirect(self.get_success_url())
+
+class RoleDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = Role
     template_name = 'inventory/role_confirm_delete.html'
     success_url = reverse_lazy('inventory:role_list')
+    permission_required = 'inventory.delete_role'
 
     def get(self, request, *args, **kwargs):
         role = self.get_object()
@@ -1341,11 +1422,6 @@ class RoleDeleteView(LoginRequiredMixin, DeleteView):
 # Authentication Views
 @login_required
 def logout_view(request):
-    # Set last_activity to None before logging out
-    if hasattr(request.user, 'profile'):
-        profile = request.user.profile
-        profile.last_activity = None
-        profile.save(update_fields=['last_activity'])
     logout(request)
     return redirect('/accounts/login/')
 

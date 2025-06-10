@@ -51,15 +51,23 @@ DATABASES = {
 python manage.py migrate
 ```
 
-2. Create a superuser with admin role:
+2. Create a superuser:
+   **Note:** The `createsuperuser` command is now protected. It will prevent you from creating more than one superuser and will automatically assign the correct role and permissions.
 ```bash
 python manage.py createsuperuser
-# Enter username (e.g., admin)
-# Enter email (e.g., admin@example.com)
-# Enter password (e.g., 123)
+# Follow the prompts to enter username, email, and password.
 ```
 
 3. Set up admin role and profile:
+   This step is no longer necessary as the `createsuperuser` command handles it automatically.
 ```bash
-python setup_admin.py
+# python setup_admin.py (No longer needed)
+```
 
+4. Run the Project
+```bash
+python manage.py runserver
+```
+
+5. Access the application:
+   Open your browser and navigate to `http://127.0.0.1:8000/`. Log in with the credentials you just created.

@@ -10,6 +10,7 @@
             <i class="fas fa-users me-2"></i>Employees
         </h1>
         <div>
+            {% if perms.inventory.add_employee %}
             <a href="{% url 'inventory:employee_upload' %}" class="btn btn-success me-2">
                 <i class="fas fa-upload"></i> Upload Employees
             </a>
@@ -19,6 +20,7 @@
             <a href="{% url 'inventory:employee_create' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Add Employee
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -71,7 +73,9 @@
                             <th>Department</th>
                             <th>Company</th>
                             <th>Status</th>
+                            {% if perms.inventory.change_employee or perms.inventory.delete_employee %}
                             <th>Actions</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -87,26 +91,31 @@
                                         {{ employee.is_active|yesno:"Active,Inactive" }}
                                     </span>
                                 </td>
+                                {% if perms.inventory.change_employee or perms.inventory.delete_employee %}
                                 <td>
                                     <div class="btn-group">
                                         <a href="{% url 'inventory:employee_detail' employee.pk %}" class="btn btn-info btn-sm">
                                             <i class="fas fa-eye"></i>
                                         </a>
+                                        {% if perms.inventory.change_employee %}
                                         <a href="{% url 'inventory:employee_update' employee.pk %}" class="btn btn-warning btn-sm">
                                             <i class="fas fa-edit"></i>
                                         </a>
+                                        {% endif %}
+                                        {% if perms.inventory.delete_employee %}
                                         <a href="{% url 'inventory:employee_delete' employee.pk %}" class="btn btn-danger btn-sm">
                                             <i class="fas fa-trash"></i>
                                         </a>
+                                        {% endif %}
                                     </div>
                                 </td>
+                                {% endif %}
                             </tr>
                         {% empty %}
                             <tr>
                                 <td colspan="7" class="text-center">No employees found.</td>
                             </tr>
                         {% endfor %}
-                        <!-- pagination -->
                     </tbody>
                 </table>
             </div>

@@ -141,7 +141,7 @@
                             <i class="fas fa-envelope"></i> Messages
                         </a>
                     </li>
-                    {% if user.is_superuser %}
+                    {% if perms.inventory.view_role %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'role_list' %}active{% endif %}" href="{% url 'inventory:role_list' %}">
                             <i class="fas fa-user-shield"></i> Roles

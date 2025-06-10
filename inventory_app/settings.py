@@ -31,13 +31,16 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '172.16.220.105']
 # Application definition
 
 INSTALLED_APPS = [
+    # Local apps first to override built-in commands
+    'inventory',
+    
+    # Django built-in apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'inventory',
 ]
 
 MIDDLEWARE = [

@@ -31,15 +31,11 @@
                         {% for role in roles %}
                         <tr>
                             <td>{{ role.name }}</td>
-                            <td>{{ role.description|truncatechars:100 }}</td>
+                            <td>{{ role.description|default:"-" }}</td>
                             <td>
-                                {% for permission, value in role.permissions.items %}
-                                {% if value %}
-                                <span class="badge bg-primary me-1">{{ permission }}</span>
-                                {% endif %}
-                                {% endfor %}
+                                <span class="badge bg-primary">{{ role.get_permission_count }} active</span>
                             </td>
-                            <td>{{ role.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>{{ role.created_at|date:"Y-m-d" }}</td>
                             <td>
                                 <a href="{% url 'inventory:role_update' role.pk %}" class="btn btn-sm btn-primary">
                                     <i class="fas fa-edit"></i>

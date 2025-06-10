@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.validators import RegexValidator
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_cairo_time():
     return timezone.now() + timezone.timedelta(hours=3)
@@ -213,43 +216,135 @@ class AssetHistory(models.Model):
         return f"{self.asset.name} - {self.get_status_display()} - {self.date}"
 
 class Role(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-    permissions = models.JSONField(default=dict)  # Store permissions as JSON
+    permissions = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
 
+    def has_permission(self, permission):
+        """Check if the role has a specific permission."""
+        logger.debug(f"Checking permission '{permission}' for role '{self.name}'")
+        logger.debug(f"Role permissions: {self.permissions}")
+        # Check if the permission exists in the permissions dict and is True
+        has_perm = self.permissions.get(permission, False) is True
+        logger.debug(f"Permission check result: {has_perm}")
+        logger.debug(f"Permission value in dict: {self.permissions.get(permission)}")
+        logger.debug(f"Permission type: {type(self.permissions.get(permission))}")
+        return has_perm
+
+    def get_all_permissions(self):
+        """Get all permissions for this role."""
+        perms = [perm for perm, value in self.permissions.items() if value is True]
+        logger.debug(f"All permissions for role '{self.name}': {perms}")
+        return perms
+
+    def add_permission(self, permission):
+        """Add a permission to the role."""
+        logger.debug(f"Adding permission '{permission}' to role '{self.name}'")
+        self.permissions[permission] = True
+        self.save()
+        logger.debug(f"Updated permissions: {self.permissions}")
+
+    def remove_permission(self, permission):
+        """Remove a permission from the role."""
+        if permission in self.permissions:
+            logger.debug(f"Removing permission '{permission}' from role '{self.name}'")
+            del self.permissions[permission]
+            self.save()
+            logger.debug(f"Updated permissions: {self.permissions}")
+
+    def clear_permissions(self):
+        """Clear all permissions from the role."""
+        logger.debug(f"Clearing all permissions for role '{self.name}'")
+        self.permissions = {}
+        self.save()
+
+    @staticmethod
+    def get_all_defined_permissions():
+        """
+        Returns a dictionary of all possible permissions, grouped by category.
+        This is the single source of truth for permissions in the application.
+        """
+        return {
+            'Company Management': {
+                'view_company': 'View Companies', 'add_company': 'Add Companies',
+                'change_company': 'Edit Companies', 'delete_company': 'Delete Companies',
+            },
+            'Asset Type Management': {
+                'view_assettype': 'View Asset Types', 'add_assettype': 'Add Asset Types',
+                'change_assettype': 'Edit Asset Types', 'delete_assettype': 'Delete Asset Types',
+            },
+            'Department Management': {
+                'view_department': 'View Departments', 'add_department': 'Add Departments',
+                'change_department': 'Edit Departments', 'delete_department': 'Delete Departments',
+            },
+            'Asset Management': {
+                'view_asset': 'View Assets', 'add_asset': 'Add Assets',
+                'change_asset': 'Edit Assets', 'delete_asset': 'Delete Assets',
+            },
+            'Employee Management': {
+                'view_employee': 'View Employees', 'add_employee': 'Add Employees',
+                'change_employee': 'Edit Employees', 'delete_employee': 'Delete Employees',
+            },
+            'User Management': {
+                'view_user': 'View Users', 'add_user': 'Add Users',
+                'change_user': 'Edit Users', 'delete_user': 'Delete Users',
+            },
+            'Role Management': {
+                'view_role': 'View Roles', 'add_role': 'Add Roles',
+                'change_role': 'Edit Roles', 'delete_role': 'Delete Roles',
+            },
+            'Team Management': {
+                'view_team': 'View Teams', 'add_team': 'Add Teams',
+                'change_team': 'Edit Teams', 'delete_team': 'Delete Teams',
+            },
+        }
+
+    def get_permission_count(self):
+        """Returns the number of active permissions for the role."""
+        if isinstance(self.permissions, dict):
+            return sum(1 for permission_value in self.permissions.values() if permission_value is True)
+        return 0
+
+    class Meta:
+        ordering = ['name']
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True)
-    employee = models.OneToOneField(Employee, on_delete=models.SET_NULL, null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    last_login = models.DateTimeField(null=True, blank=True)
-    last_activity = models.DateTimeField(null=True, blank=True)
+    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username}'s Profile"
+        return f"{self.user.username}'s profile"
 
     def has_permission(self, permission):
-        if not self.role or not self.is_active:
-            return False
-        return self.role.permissions.get(permission, False)
+        """Check if the user has a specific permission through their role."""
+        logger.debug(f"Checking permission '{permission}' for user '{self.user.username}'")
+        if self.role:
+            logger.debug(f"User has role: {self.role.name}")
+            has_perm = self.role.has_permission(permission)
+            logger.debug(f"Permission check result: {has_perm}")
+            return has_perm
+        logger.debug("User has no role assigned")
+        return False
 
     def get_all_permissions(self):
-        if not self.role:
-            return {}
-        return self.role.permissions
+        """Get all permissions for this user through their role."""
+        if self.role:
+            perms = self.role.get_all_permissions()
+            logger.debug(f"All permissions for user '{self.user.username}': {perms}")
+            return perms
+        return []
 
-    def is_online(self):
-        if not self.last_activity:
-            return False
-        # Consider user online if they have had activity in the last 5 minutes
-        return (timezone.now() - self.last_activity).total_seconds() <= 300  # 5 minutes = 300 seconds
+    class Meta:
+        ordering = ['user__username']
 
 class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
@@ -280,3 +375,26 @@ class Message(models.Model):
 
     def get_replies(self):
         return self.replies.all().order_by('created_at')
+
+# Monkey-patch the User model to use our custom role-based permissions
+def custom_user_has_perm(self, perm, obj=None):
+    """
+    Checks if the user has a specific permission.
+    - Superusers have all permissions.
+    - Otherwise, it checks the user's role through their profile.
+    """
+    # Superusers have all permissions
+    if self.is_active and self.is_superuser:
+        return True
+
+    # Check for custom role permissions via the user's profile
+    if hasattr(self, 'profile'):
+        # Extract the permission name (e.g., 'view_role' from 'inventory.view_role')
+        permission_name = perm.split('.')[-1]
+        return self.profile.has_permission(permission_name)
+
+    # If no profile or other checks fail, deny permission
+    return False
+
+# Replace the default has_perm method with our custom one
+User.add_to_class('has_perm', custom_user_has_perm)
