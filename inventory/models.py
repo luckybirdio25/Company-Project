@@ -2,22 +2,22 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.validators import RegexValidator
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 import logging
+import pytz
 
 logger = logging.getLogger(__name__)
 
 def get_cairo_time():
-    return timezone.now() + timezone.timedelta(hours=3)
+    cairo_tz = pytz.timezone('Africa/Cairo')
+    return timezone.now().astimezone(cairo_tz)
 
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-    created_at = models.DateTimeField(default=get_cairo_time)
-    updated_at = models.DateTimeField(default=get_cairo_time)
-
-    def save(self, *args, **kwargs):
-        self.updated_at = get_cairo_time()
-        super().save(*args, **kwargs)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
@@ -30,25 +30,61 @@ class Department(models.Model):
         verbose_name = 'Department'
         verbose_name_plural = 'Departments'
 
+class Employee(models.Model):
+    STATUS_CHOICES = [
+        ('employed', 'Employed'),
+        ('on_leave', 'On Leave'),
+        ('terminated', 'Terminated'),
+        ('training', 'Training'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    employee_id = models.CharField(max_length=20, unique=True, help_text="Enter employee ID (e.g., 9970)")
+    national_id = models.CharField(max_length=14, unique=True, help_text="Enter the 14-digit national ID number")
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=20, blank=True)
+    department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True)
+    position = models.ForeignKey('Position', on_delete=models.SET_NULL, null=True)
+    hire_date = models.DateField(null=True, blank=True)
+    company = models.ForeignKey('OwnerCompany', on_delete=models.PROTECT, related_name='employees')
+    employment_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='employed')
+    retirement_date = models.DateField(null=True, blank=True)
+    resignation_date = models.DateField(null=True, blank=True)
+    training_start_date = models.DateField(null=True, blank=True)
+    training_end_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.employee_id})"
+
 class Team(models.Model):
     name = models.CharField(max_length=100)
-    manager = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, related_name='managed_teams')
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='teams')
+    department = models.ForeignKey('Department', on_delete=models.CASCADE)
+    manager = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_teams')
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.name} ({self.department.name})"
+        return self.name
+
+class TeamMember(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='members')
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='team_memberships')
+    joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['department', 'name']
-        verbose_name = 'Team'
-        verbose_name_plural = 'Teams'
+        unique_together = ('team', 'employee')
+
+    def __str__(self):
+        return f"{self.employee} - {self.team}"
 
 class Position(models.Model):
     name = models.CharField(max_length=100)
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='positions')
+    department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='positions')
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -72,40 +108,6 @@ class OwnerCompany(models.Model):
 
     def __str__(self):
         return self.name
-
-class Employee(models.Model):
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='employee_profile')
-    employee_id = models.CharField(max_length=20, unique=True, help_text="Enter employee ID (e.g., EMP001 or ABC123)")
-    national_id = models.CharField(max_length=14, unique=True, help_text="Enter the 14-digit national ID number")
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=20, null=True, blank=True)
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='employees')
-    position = models.CharField(max_length=100)
-    hire_date = models.DateField()
-    company = models.ForeignKey(OwnerCompany, on_delete=models.PROTECT, related_name='employees')
-    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.get_full_name()} ({self.employee_id})"
-
-    def get_full_name(self):
-        return f"{self.first_name} {self.last_name}"
-
-    def get_team_members(self):
-        """Returns all team members if this employee is a team manager"""
-        if self.managed_teams.exists():
-            return Employee.objects.filter(team__in=self.managed_teams.all())
-        return None
-
-    class Meta:
-        ordering = ['first_name', 'last_name']
-        verbose_name = 'Employee'
-        verbose_name_plural = 'Employees'
 
 class AssetType(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -203,7 +205,7 @@ class ITAsset(models.Model):
 
 class AssetHistory(models.Model):
     asset = models.ForeignKey(ITAsset, on_delete=models.CASCADE, related_name='history')
-    date = models.DateTimeField(default=get_cairo_time)
+    date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=ITAsset.STATUS_CHOICES)
     assigned_to = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -285,6 +287,7 @@ class Role(models.Model):
             'Asset Management': {
                 'view_asset': 'View Assets', 'add_asset': 'Add Assets',
                 'change_asset': 'Edit Assets', 'delete_asset': 'Delete Assets',
+                'download_asset': 'Download Assets', 'upload_asset': 'Upload Assets',
             },
             'Employee Management': {
                 'view_employee': 'View Employees', 'add_employee': 'Add Employees',
@@ -302,6 +305,10 @@ class Role(models.Model):
                 'view_team': 'View Teams', 'add_team': 'Add Teams',
                 'change_team': 'Edit Teams', 'delete_team': 'Delete Teams',
             },
+            'Ticket Management': {
+                'view_ticket': 'View Tickets', 'add_ticket': 'Create Tickets',
+                'change_ticket': 'Edit Tickets', 'delete_ticket': 'Delete Tickets',
+            },
         }
 
     def get_permission_count(self):
@@ -316,13 +323,21 @@ class Role(models.Model):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
-    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
+    department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True)
+    team = models.ForeignKey('Team', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.username}'s profile"
+
+    @property
+    def is_online(self):
+        """Returns True if the user was last seen within the last 5 minutes."""
+        if self.last_seen:
+            return (timezone.now() - self.last_seen) < timezone.timedelta(minutes=5)
+        return False
 
     def has_permission(self, permission):
         """Check if the user has a specific permission through their role."""
@@ -346,23 +361,50 @@ class UserProfile(models.Model):
     class Meta:
         ordering = ['user__username']
 
-class Message(models.Model):
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
+class Ticket(models.Model):
+    ticket_number = models.CharField(max_length=20, unique=True, blank=True)
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_tickets')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_tickets')
     subject = models.CharField(max_length=200)
     content = models.TextField()
-    created_at = models.DateTimeField(default=get_cairo_time)
+    created_at = models.DateTimeField(default=timezone.now)
     is_read = models.BooleanField(default=False)
-    parent_message = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    parent_ticket = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
     has_new_reply = models.BooleanField(default=False)
-    asset = models.ForeignKey(ITAsset, on_delete=models.SET_NULL, null=True, blank=True, related_name='messages')
-    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='messages')
+    asset = models.ForeignKey(ITAsset, on_delete=models.SET_NULL, null=True, blank=True, related_name='tickets')
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='tickets')
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.subject} - From: {self.sender} To: {self.recipient}"
+        return f"#{self.ticket_number} - {self.subject}"
+
+    def generate_ticket_number(self):
+        """Generate a sequential ticket number in the format TICKET-YYYY-XXXX"""
+        # Get the current year
+        current_year = timezone.now().year
+        
+        # Get the last ticket number for the current year
+        last_ticket = Ticket.objects.filter(
+            ticket_number__startswith=f'TICKET-{current_year}-'
+        ).order_by('-ticket_number').first()
+        
+        if last_ticket:
+            # Extract the number part and increment it
+            last_number = int(last_ticket.ticket_number.split('-')[-1])
+            new_number = last_number + 1
+        else:
+            # If no tickets exist for this year, start with 1
+            new_number = 1
+            
+        # Format the new ticket number without padding
+        return f'TICKET-{current_year}-{new_number}'
+
+    def save(self, *args, **kwargs):
+        if not self.ticket_number:
+            self.ticket_number = self.generate_ticket_number()
+        super().save(*args, **kwargs)
 
     def mark_as_read(self):
         self.is_read = True
@@ -398,3 +440,20 @@ def custom_user_has_perm(self, perm, obj=None):
 
 # Replace the default has_perm method with our custom one
 User.add_to_class('has_perm', custom_user_has_perm)
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        # Only create profile if it doesn't exist, without granting permissions
+        UserProfile.objects.get_or_create(
+            user=instance,
+            defaults={'role': None}  # Don't set default role, let the view handle it
+        )
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    # Only create profile if it doesn't exist, without granting permissions
+    UserProfile.objects.get_or_create(
+        user=instance,
+        defaults={'role': None}  # Don't set default role, let the view handle it
+    )

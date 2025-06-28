@@ -15,7 +15,6 @@ urlpatterns = [
     path('employees/upload/', views.employee_upload, name='employee_upload'),
     path('employees/download/template/', views.download_employee_template, name='download_employee_template'),
     path('employees/download/data/', views.download_employee_data, name='download_employee_data'),
-    path('employees/<int:pk>/toggle-status/', views.employee_toggle_status, name='employee_toggle_status'),
     
     # Asset URLs
     path('assets/', views.ITAssetListView.as_view(), name='asset_list'),
@@ -29,10 +28,10 @@ urlpatterns = [
     path('assets/assign/', views.asset_assign, name='asset_assign'),
     
     # Asset Type URLs
-    path('asset-types/', views.AssetTypeListView.as_view(), name='asset_type_list'),
-    path('asset-types/create/', views.AssetTypeCreateView.as_view(), name='asset_type_create'),
-    path('asset-types/<int:pk>/update/', views.AssetTypeUpdateView.as_view(), name='asset_type_update'),
-    path('asset-types/<int:pk>/delete/', views.AssetTypeDeleteView.as_view(), name='asset_type_delete'),
+    path('asset-types/', views.AssetTypeListView.as_view(), name='assettype_list'),
+    path('asset-types/create/', views.AssetTypeCreateView.as_view(), name='assettype_create'),
+    path('asset-types/<int:pk>/update/', views.AssetTypeUpdateView.as_view(), name='assettype_update'),
+    path('asset-types/<int:pk>/delete/', views.AssetTypeDeleteView.as_view(), name='assettype_delete'),
     
     # Owner Company URLs
     path('companies/', views.OwnerCompanyListView.as_view(), name='owner_company_list'),
@@ -68,19 +67,19 @@ urlpatterns = [
     path('roles/<int:pk>/update/', views.RoleUpdateView.as_view(), name='role_update'),
     path('roles/<int:pk>/delete/', views.RoleDeleteView.as_view(), name='role_delete'),
     
-    # Message URLs
-    path('messages/', views.MessageListView.as_view(), name='message_list'),
-    path('messages/sent/', views.SentMessageListView.as_view(), name='sent_message_list'),
-    path('messages/create/', views.MessageCreateView.as_view(), name='message_create'),
-    path('messages/<int:pk>/', views.MessageDetailView.as_view(), name='message_detail'),
-    path('messages/<int:pk>/reply/', views.MessageReplyView.as_view(), name='message_reply'),
-    path('messages/<int:pk>/delete/', views.MessageDeleteView.as_view(), name='message_delete'),
-    path('messages/notifications/', views.message_notifications, name='message_notifications'),
-    path('messages/<int:pk>/check-replies/', views.check_replies, name='check_replies'),
+    # Ticket URLs
+    path('tickets/', views.TicketListView.as_view(), name='ticket_list'),
+    path('tickets/create/', views.TicketCreateView.as_view(), name='ticket_create'),
+    path('tickets/<int:pk>/', views.TicketDetailView.as_view(), name='ticket_detail'),
+    path('tickets/<int:pk>/reply/', views.TicketReplyView.as_view(), name='ticket_reply'),
+    path('tickets/<int:pk>/delete/', views.TicketDeleteView.as_view(), name='ticket_delete'),
+    path('tickets/notifications/', views.ticket_notifications, name='ticket_notifications'),
+    path('tickets/<int:pk>/check-replies/', views.check_replies, name='check_replies'),
     
     # Asset History URLs
     path('history/', views.AssetHistoryListView.as_view(), name='asset_history'),
     
     # Authentication URLs
     path('logout/', views.logout_view, name='logout'),
+    path('api/departments/<int:department_id>/positions/', views.get_department_positions, name='department_positions'),
 ]

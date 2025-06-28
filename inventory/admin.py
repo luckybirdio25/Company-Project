@@ -18,8 +18,8 @@ class PositionAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('employee_id', 'first_name', 'last_name', 'email', 'department', 'position', 'is_active')
-    list_filter = ('department', 'is_active')
+    list_display = ('employee_id', 'first_name', 'last_name', 'email', 'department', 'position', 'employment_status')
+    list_filter = ('department', 'employment_status')
     search_fields = ('employee_id', 'first_name', 'last_name', 'email', 'position')
     ordering = ('last_name', 'first_name')
     fieldsets = (
@@ -27,7 +27,7 @@ class EmployeeAdmin(admin.ModelAdmin):
             'fields': ('employee_id', 'first_name', 'last_name', 'email', 'phone_number')
         }),
         ('Employment Information', {
-            'fields': ('department', 'position', 'hire_date', 'is_active')
+            'fields': ('department', 'position', 'hire_date', 'employment_status')
         }),
         ('Location Information', {
             'fields': ('office_location', 'desk_number')

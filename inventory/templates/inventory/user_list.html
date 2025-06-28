@@ -37,22 +37,25 @@
                             <td>{{ user.get_full_name }}</td>
                             <td>{{ user.email }}</td>
                             <td>{{ user.profile.role.name|default:"-" }}</td>
-                            <td>{{ user.profile.employee.get_full_name|default:"-" }}</td>
+                            <td>{{ user.employee_profile.get_full_name|default:"-" }}</td>
                             <td>
-                                {% if user.profile.is_online %}
-                                <span class="badge bg-success">
-                                    <i class="fas fa-circle me-1"></i>Online
-                                </span>
+                                {% if user.last_login %}
+                                    {% if user.profile.is_online %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-circle me-1"></i>Online
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-circle me-1"></i>Offline
+                                        </span>
+                                    {% endif %}
                                 {% else %}
-                                <span class="badge bg-secondary">
-                                    <i class="fas fa-circle me-1"></i>Offline
-                                </span>
-                                {% endif %}
-                                {% if not user.profile.is_active %}
-                                <span class="badge bg-danger ms-1">Inactive</span>
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-user-clock me-1"></i>Inactive
+                                    </span>
                                 {% endif %}
                             </td>
-                            <td>{{ user.profile.last_login|default:"Never" }}</td>
+                            <td>{{ user.last_login|date:"Y-m-d H:i"|default:"Never" }}</td>
                             <td>
                                 <a href="{% url 'inventory:user_update' user.pk %}" class="btn btn-sm btn-primary">
                                     <i class="fas fa-edit"></i>

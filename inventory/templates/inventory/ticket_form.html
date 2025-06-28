@@ -4,7 +4,7 @@
 {% block title %}New Message{% endblock %}
 
 {% block extra_css %}
-<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
 <style>
     .note-editable {
         direction: rtl;
@@ -84,7 +84,7 @@
                         </div>
 
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'inventory:message_list' %}" class="btn btn-secondary">Cancel</a>
+                            <a href="{% url 'inventory:ticket_list' %}" class="btn btn-secondary">Cancel</a>
                             <button type="submit" class="btn btn-primary">Send Message</button>
                         </div>
                     </form>
@@ -97,7 +97,7 @@
 
 {% block extra_js %}
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
 <script>
     $(document).ready(function() {
         $('.rich-text-editor').summernote({
@@ -105,44 +105,16 @@
             toolbar: [
                 ['style', ['style']],
                 ['font', ['bold', 'italic', 'underline', 'clear']],
-                ['fontname', ['fontname']],
-                ['fontsize', ['fontsize']],
                 ['color', ['color']],
-                ['para', ['ul', 'ol', 'paragraph']],
-                ['height', ['height']],
+                ['para', ['ul', 'ol', 'paragraph', 'align']],
                 ['insert', ['link']],
                 ['view', ['fullscreen', 'codeview']],
-                ['custom', ['toggleDirection']]
             ],
-            fontNames: ['Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Helvetica', 'Times New Roman', 'Verdana', 'Tahoma'],
-            fontSizes: ['8', '9', '10', '11', '12', '14', '16', '18', '24', '36'],
-            placeholder: 'اكتب رسالتك هنا ...',
+            placeholder: 'Write your message here...',
             callbacks: {
                 onInit: function() {
                     var editor = $('.note-editable');
-                    editor.attr('dir', 'rtl');
-                }
-            },
-            buttons: {
-                toggleDirection: function(context) {
-                    var ui = $.summernote.ui;
-                    var button = ui.button({
-                        contents: '<i class="fa fa-exchange"></i> Toggle Direction',
-                        tooltip: 'Toggle RTL/LTR for selected text',
-                        click: function() {
-                            var range = context.invoke('editor.getLastRange');
-                            if (range) {
-                                var selectedNode = range.commonAncestor();
-                                var currentDir = $(selectedNode).css('direction');
-                                var newDir = currentDir === 'rtl' ? 'ltr' : 'rtl';
-                                
-                                // Apply direction to the selected node
-                                $(selectedNode).css('direction', newDir);
-                                $(selectedNode).css('text-align', newDir === 'rtl' ? 'right' : 'left');
-                            }
-                        }
-                    });
-                    return button.render();
+                    editor.attr('dir', 'ltr');
                 }
             }
         });

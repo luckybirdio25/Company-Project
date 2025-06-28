@@ -3,37 +3,29 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Teams</h1>
-        <a href="{% url 'inventory:team_create' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Add Team
-        </a>
-    </div>
-
-    <!-- Search Bar -->
-    <div class="card shadow mb-4">
-        <div class="card-body">
-            <form method="get" class="form-inline">
-                <div class="input-group w-100">
-                    <input type="text" name="search" class="form-control" placeholder="Search teams..." 
-                           value="{{ request.GET.search|default:'' }}">
-                    <div class="input-group-append">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                </div>
-            </form>
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-user-friends me-2"></i>Teams
+        </h1>
+        <div>
+            <a href="#" class="btn btn-primary" {% if access_denied or not can_add_team %}disabled title="Access Denied"{% endif %}>
+                <i class="fas fa-plus"></i> Add Team
+            </a>
         </div>
     </div>
 
-    <!-- Teams Table -->
+    {% if access_denied %}
+    <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i> Access Denied: You do not have permission to view teams.
+    </div>
+    {% endif %}
+
     <div class="card shadow mb-4">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered" id="teamsTable" width="100%" cellspacing="0">
+                <table class="table table-bordered">
                     <thead>
                         <tr>
-                            <th>Team Name</th>
+                            <th>Name</th>
                             <th>Department</th>
                             <th>Manager</th>
                             <th>Members</th>
@@ -41,6 +33,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% if access_denied %}
+                        <tr><td colspan="5" class="text-center text-muted">No data (Access Denied)</td></tr>
+                        {% else %}
                         {% for team in teams %}
                         <tr>
                             <td>{{ team.name }}</td>
@@ -48,20 +43,12 @@
                             <td>{{ team.manager.get_full_name }}</td>
                             <td>{{ team.members.count }}</td>
                             <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'inventory:team_detail' team.pk %}" 
-                                       class="btn btn-sm btn-info">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{% url 'inventory:team_update' team.pk %}" 
-                                       class="btn btn-sm btn-primary">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{% url 'inventory:team_delete' team.pk %}" 
-                                       class="btn btn-sm btn-danger">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                </div>
+                                <a href="#" class="btn btn-sm btn-info" {% if access_denied or not can_change_team %}disabled title="Access Denied"{% endif %}>
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <a href="#" class="btn btn-sm btn-danger" {% if access_denied or not can_delete_team %}disabled title="Access Denied"{% endif %}>
+                                    <i class="fas fa-trash"></i> Delete
+                                </a>
                             </td>
                         </tr>
                         {% empty %}
@@ -69,6 +56,7 @@
                             <td colspan="5" class="text-center">No teams found.</td>
                         </tr>
                         {% endfor %}
+                        {% endif %}
                     </tbody>
                 </table>
             </div>

@@ -7,8 +7,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory, Team, User, Role, Message
-from .forms import EmployeeForm, ITAssetForm, UserForm, UserProfileForm, RoleForm, MessageForm
+from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, AssetHistory, Team, User, Role, Ticket, UserProfile, TeamMember
+from .forms import EmployeeForm, ITAssetForm, UserForm, UserProfileForm, RoleForm, TicketForm, AssetTypeForm, DepartmentForm, CompanyForm, TeamForm
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 import openpyxl
 from openpyxl import Workbook
@@ -21,11 +21,16 @@ import json
 import time
 from django.core.exceptions import PermissionDenied
 import logging
+from .mixins import PermissionRequiredMixin, SuperuserRequiredMixin
 
 logger = logging.getLogger(__name__)
 
 @login_required
 def home(request):
+    if not request.user.is_superuser:
+        return render(request, 'inventory/home.html', {
+            'show_no_data': True
+        })
     # Get total counts
     total_assets = ITAsset.objects.count()
     total_employees = Employee.objects.count()
@@ -83,59 +88,25 @@ def home(request):
     }
     return render(request, 'inventory/home.html', context)
 
-class EmployeeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class EmployeeListView(LoginRequiredMixin, ListView):
     model = Employee
     template_name = 'inventory/employee_list.html'
     context_object_name = 'employees'
-    permission_required = 'inventory.view_employee'
-    paginate_by = 10
 
     def get_queryset(self):
-        # Debug logging
-        logger.debug(f"User {self.request.user.username} attempting to access employee list")
-        logger.debug(f"User permissions: {list(self.request.user.get_all_permissions())}")
-        logger.debug(f"User groups: {list(self.request.user.groups.all())}")
-        if hasattr(self.request.user, 'profile'):
-            logger.debug(f"User role: {self.request.user.profile.role}")
-            if self.request.user.profile.role:
-                logger.debug(f"Role permissions: {self.request.user.profile.role.permissions}")
-                logger.debug(f"Has view_employee permission: {self.request.user.profile.has_permission('view_employee')}")
-        
-        queryset = super().get_queryset()
-        
-        # Get search and filter parameters
-        search_query = self.request.GET.get('search', '')
-        department_id = self.request.GET.get('department', '')
-        company_id = self.request.GET.get('company', '')
-        
-        # Apply search filter if provided
-        if search_query:
-            queryset = queryset.filter(
-                Q(first_name__icontains=search_query) |
-                Q(last_name__icontains=search_query) |
-                Q(email__icontains=search_query) |
-                Q(employee_id__icontains=search_query) |
-                Q(national_id__icontains=search_query)
-            )
-        
-        # Apply department filter if provided
-        if department_id:
-            queryset = queryset.filter(department_id=department_id)
-        
-        # Apply company filter if provided
-        if company_id:
-            queryset = queryset.filter(company_id=company_id)
-        
-        return queryset
+        if self.request.user.has_perm('inventory.view_employee'):
+            return super().get_queryset()
+        return Employee.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['departments'] = Department.objects.all()
         context['companies'] = OwnerCompany.objects.all()
-        # Add permission flags for UI elements
-        context['can_add_employee'] = self.request.user.has_perm('inventory.add_employee')
-        context['can_change_employee'] = self.request.user.has_perm('inventory.change_employee')
-        context['can_delete_employee'] = self.request.user.has_perm('inventory.delete_employee')
+        access_denied = not self.request.user.has_perm('inventory.view_employee')
+        context['access_denied'] = access_denied
+        context['can_add_employee'] = self.request.user.has_perm('inventory.add_employee') and not access_denied
+        context['can_change_employee'] = self.request.user.has_perm('inventory.change_employee') and not access_denied
+        context['can_delete_employee'] = self.request.user.has_perm('inventory.delete_employee') and not access_denied
         return context
 
 class EmployeeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -150,59 +121,34 @@ class EmployeeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         context['can_delete_employee'] = self.request.user.has_perm('inventory.delete_employee')
         return context
 
-class EmployeeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class EmployeeCreateView(SuperuserRequiredMixin, CreateView):
     model = Employee
     form_class = EmployeeForm
     template_name = 'inventory/employee_form.html'
-    permission_required = 'inventory.add_employee'
     success_url = reverse_lazy('inventory:employee_list')
 
     def form_valid(self, form):
         messages.success(self.request, 'Employee created successfully.')
         return super().form_valid(form)
 
-class EmployeeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class EmployeeUpdateView(SuperuserRequiredMixin, UpdateView):
     model = Employee
     form_class = EmployeeForm
     template_name = 'inventory/employee_form.html'
-    permission_required = 'inventory.change_employee'
     success_url = reverse_lazy('inventory:employee_list')
 
     def form_valid(self, form):
         messages.success(self.request, 'Employee updated successfully.')
         return super().form_valid(form)
 
-class EmployeeDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class EmployeeDeleteView(SuperuserRequiredMixin, DeleteView):
     model = Employee
     template_name = 'inventory/employee_confirm_delete.html'
-    permission_required = 'inventory.delete_employee'
     success_url = reverse_lazy('inventory:employee_list')
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Employee deleted successfully.')
         return super().delete(request, *args, **kwargs)
-
-@login_required
-def employee_toggle_status(request, pk):
-    # Debug logging
-    logger.debug(f"User {request.user.username} attempting to toggle employee status")
-    logger.debug(f"User permissions: {request.user.get_all_permissions()}")
-    
-    if not request.user.has_perm('inventory.change_employee'):
-        logger.warning(f"User {request.user.username} denied access to toggle employee status - missing change_employee permission")
-        messages.error(request, 'You do not have permission to change employee status.')
-        return redirect('inventory:home')
-    
-    employee = get_object_or_404(Employee, pk=pk)
-    
-    if request.method == 'POST':
-        employee.is_active = not employee.is_active
-        employee.save()
-        
-        status = 'activated' if employee.is_active else 'deactivated'
-        messages.success(request, f'Employee "{employee.get_full_name()}" has been {status}.')
-    
-    return redirect('inventory:employee_detail', pk=employee.pk)
 
 @login_required
 def asset_assign(request):
@@ -246,61 +192,29 @@ def asset_assign(request):
     
     return render(request, 'inventory/asset_assign.html', context)
 
-class ITAssetListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class ITAssetListView(LoginRequiredMixin, ListView):
     model = ITAsset
     template_name = 'inventory/asset_list.html'
     context_object_name = 'assets'
     paginate_by = 10
-    permission_required = 'inventory.view_asset'
 
     def get_queryset(self):
-        # Debug logging
-        logger.debug(f"User {self.request.user.username} attempting to access asset list")
-        logger.debug(f"User permissions: {list(self.request.user.get_all_permissions())}")
-        logger.debug(f"User groups: {list(self.request.user.groups.all())}")
-        if hasattr(self.request.user, 'profile'):
-            logger.debug(f"User role: {self.request.user.profile.role}")
-            if self.request.user.profile.role:
-                logger.debug(f"Role permissions: {self.request.user.profile.role.permissions}")
-                logger.debug(f"Has view_asset permission: {self.request.user.profile.has_permission('view_asset')}")
-                logger.debug(f"Permission check via has_perm: {self.request.user.has_perm('inventory.view_asset')}")
-        
-        queryset = super().get_queryset()
-        
-        # Get filter parameters
-        search_query = self.request.GET.get('search', '')
-        asset_type = self.request.GET.get('asset_type', '')
-        status = self.request.GET.get('status', '')
-        manufacturer = self.request.GET.get('manufacturer', '')
-        
-        # Apply search filter
-        if search_query:
-            queryset = queryset.filter(
-                Q(name__icontains=search_query) |
-                Q(serial_number__icontains=search_query) |
-                Q(model__icontains=search_query) |
-                Q(delivery_letter_code__icontains=search_query)
-            )
-        
-        # Apply asset type filter
-        if asset_type:
-            queryset = queryset.filter(asset_type_id=asset_type)
-        
-        # Apply status filter
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        # Apply manufacturer filter
-        if manufacturer:
-            queryset = queryset.filter(manufacturer=manufacturer)
-        
-        return queryset
+        if self.request.user.has_perm('inventory.view_asset'):
+            return super().get_queryset()
+        return ITAsset.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['asset_types'] = AssetType.objects.all()
         context['status_choices'] = ITAsset.STATUS_CHOICES
         context['manufacturers'] = ITAsset.objects.exclude(manufacturer='').values_list('manufacturer', flat=True).distinct()
+        access_denied = not self.request.user.has_perm('inventory.view_asset')
+        context['access_denied'] = access_denied
+        context['can_add_asset'] = self.request.user.has_perm('inventory.add_asset') and not access_denied
+        context['can_change_asset'] = self.request.user.has_perm('inventory.change_asset') and not access_denied
+        context['can_delete_asset'] = self.request.user.has_perm('inventory.delete_asset') and not access_denied
+        context['can_download_asset'] = self.request.user.has_perm('inventory.download_asset') and not access_denied
+        context['can_upload_asset'] = self.request.user.has_perm('inventory.upload_asset') and not access_denied
         return context
 
 class ITAssetDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -309,37 +223,30 @@ class ITAssetDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
     context_object_name = 'asset'
     permission_required = 'inventory.view_asset'
 
-class ITAssetCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class ITAssetCreateView(SuperuserRequiredMixin, CreateView):
     model = ITAsset
     form_class = ITAssetForm
     template_name = 'inventory/asset_form.html'
     success_url = reverse_lazy('inventory:asset_list')
-    permission_required = 'inventory.add_asset'
 
     def form_valid(self, form):
         messages.success(self.request, 'IT Asset created successfully.')
         return super().form_valid(form)
 
-class ITAssetUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class ITAssetUpdateView(SuperuserRequiredMixin, CreateView):
     model = ITAsset
     form_class = ITAssetForm
     template_name = 'inventory/asset_form.html'
     success_url = reverse_lazy('inventory:asset_list')
-    permission_required = 'inventory.change_asset'
 
     def form_valid(self, form):
         messages.success(self.request, 'IT Asset updated successfully.')
         return super().form_valid(form)
 
-class ITAssetDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class ITAssetDeleteView(SuperuserRequiredMixin, DeleteView):
     model = ITAsset
     template_name = 'inventory/asset_confirm_delete.html'
     success_url = reverse_lazy('inventory:asset_list')
-    permission_required = 'inventory.delete_asset'
-
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, 'IT Asset deleted successfully.')
-        return super().delete(request, *args, **kwargs)
 
 @login_required
 def employee_upload(request):
@@ -355,21 +262,19 @@ def employee_upload(request):
                     try:
                         # Get or create department first
                         department_name = row[5].value
+                        position_name = row[6].value
+
                         if department_name:
                             department, _ = Department.objects.get_or_create(name=department_name)
                             
-                            # Get or create position with department
-                            position_name = row[6].value
+                            # Get or create position object for the Position model, but don't use the object for the employee's position field
                             if position_name:
-                                position, _ = Position.objects.get_or_create(
+                                Position.objects.get_or_create(
                                     name=position_name,
-                                    department=department  # Set the department for the position
+                                    department=department
                                 )
-                            else:
-                                position = None
                         else:
                             department = None
-                            position = None
                         
                         # Get company
                         company_name = row[7].value
@@ -379,6 +284,21 @@ def employee_upload(request):
                             messages.error(request, f'Row {row[0].row}: Company "{company_name}" not found. Please create it first.')
                             continue
                         
+                        # Get employment status and related dates
+                        employment_status_original = row[9].value
+                        employment_status = employment_status_original.lower() if isinstance(employment_status_original, str) else employment_status_original
+                        
+                        retirement_date = row[10].value
+                        resignation_date = row[11].value
+                        training_start_date = row[12].value
+                        training_end_date = row[13].value
+
+                        # Validate status
+                        valid_statuses = [choice[0] for choice in Employee.EMPLOYMENT_STATUS_CHOICES]
+                        if employment_status not in valid_statuses:
+                            messages.error(request, f'Row {row[0].row}: Invalid employment status "{employment_status_original}".')
+                            continue
+
                         # Create employee
                         employee = Employee(
                             employee_id=row[0].value,
@@ -387,9 +307,14 @@ def employee_upload(request):
                             last_name=row[3].value,
                             email=row[4].value,
                             department=department,
-                            position=position,
-                            company=company,  # Use the company object
-                            hire_date=row[8].value
+                            position=position_name,
+                            company=company,
+                            hire_date=row[8].value,
+                            employment_status=employment_status,
+                            retirement_date=retirement_date if employment_status == 'retired' else None,
+                            resignation_date=resignation_date if employment_status == 'resigned' else None,
+                            training_start_date=training_start_date if employment_status == 'training' else None,
+                            training_end_date=training_end_date if employment_status == 'training' else None,
                         )
                         employee.save()
                     except Exception as e:
@@ -418,7 +343,12 @@ def download_employee_template(request):
         'Department *',
         'Position *',
         'Company *',
-        'Hire Date *'
+        'Hire Date',
+        'Employment Status *',
+        'Retirement Date',
+        'Resignation Date',
+        'Training Start Date',
+        'Training End Date'
     ]
     ws.append(headers)
     
@@ -432,7 +362,12 @@ def download_employee_template(request):
         'IT',
         'Software Engineer',
         'CTP',
-        '2024-01-01'
+        '2024-01-01',
+        'employed', # Default status
+        '', # Retirement Date
+        '', # Resignation Date
+        '', # Training Start Date
+        '' # Training End Date
     ]
     ws.append(example)
     
@@ -451,6 +386,12 @@ def download_employee_template(request):
         ws.append(['Available Companies:'])
         for company in companies:
             ws.append([company.name])
+    
+    # Add available employment statuses
+    ws.append([]) # Add empty row
+    ws.append(['Available Employment Statuses:'])
+    for status_code, status_name in Employee.EMPLOYMENT_STATUS_CHOICES:
+        ws.append([f'{status_code} - {status_name}'])
     
     # Style the header row
     for cell in ws[1]:
@@ -474,6 +415,12 @@ def download_employee_template(request):
     department_validation = DataValidation(type="list", formula1=f'"{",".join(departments.values_list("name", flat=True))}"')
     department_validation.add(f'F2:F{len(example) + 1}')
     ws.add_data_validation(department_validation)
+    
+    # Add data validation for employment status column
+    status_codes = [status[0] for status in Employee.EMPLOYMENT_STATUS_CHOICES]
+    status_validation = DataValidation(type="list", formula1=f'"{",".join(status_codes)}"')
+    status_validation.add(f'J2:J{ws.max_row}')
+    ws.add_data_validation(status_validation)
     
     # Adjust column widths
     for column in ws.columns:
@@ -510,7 +457,12 @@ def download_employee_data(request):
         'Department',
         'Position',
         'Company',
-        'Hire Date'
+        'Hire Date',
+        'Employment Status',
+        'Resignation Date',
+        'Retirement Date',
+        'Training Start Date',
+        'Training End Date',
     ]
     ws.append(headers)
     
@@ -526,7 +478,12 @@ def download_employee_data(request):
             str(employee.department) if employee.department else '',
             str(employee.position) if employee.position else '',
             str(employee.company.name) if employee.company else '',  # Convert company to string
-            employee.hire_date
+            employee.hire_date,
+            employee.get_employment_status_display(),
+            employee.resignation_date,
+            employee.retirement_date,
+            employee.training_start_date,
+            employee.training_end_date,
         ]
         ws.append(row)
     
@@ -627,7 +584,7 @@ def download_asset_template(request):
     for company in OwnerCompany.objects.all():
         ws.append([f'--- {company.name} Employees ---'])
         employees = Employee.objects.filter(
-            is_active=True,
+            employment_status=Employee.STATUS_EMPLOYED,
             company=company
         ).order_by('employee_id')
         
@@ -887,47 +844,71 @@ def download_asset_data(request):
 # Asset Type Views
 class AssetTypeListView(LoginRequiredMixin, ListView):
     model = AssetType
-    template_name = 'inventory/asset_type_list.html'
+    template_name = 'inventory/assettype_list.html'
     context_object_name = 'asset_types'
 
-class AssetTypeCreateView(LoginRequiredMixin, CreateView):
+    def get_queryset(self):
+        if self.request.user.has_perm('inventory.view_assettype'):
+            return super().get_queryset()
+        return AssetType.objects.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        access_denied = not self.request.user.has_perm('inventory.view_assettype')
+        context['access_denied'] = access_denied
+        context['can_add_assettype'] = self.request.user.has_perm('inventory.add_assettype') and not access_denied
+        context['can_change_assettype'] = self.request.user.has_perm('inventory.change_assettype') and not access_denied
+        context['can_delete_assettype'] = self.request.user.has_perm('inventory.delete_assettype') and not access_denied
+        return context
+
+class AssetTypeCreateView(SuperuserRequiredMixin, CreateView):
     model = AssetType
-    template_name = 'inventory/asset_type_form.html'
-    fields = ['name', 'display_name']
-    success_url = reverse_lazy('inventory:asset_type_list')
+    form_class = AssetTypeForm
+    template_name = 'inventory/assettype_form.html'
+    success_url = reverse_lazy('inventory:assettype_list')
 
     def form_valid(self, form):
         messages.success(self.request, 'Asset Type created successfully.')
         return super().form_valid(form)
 
-class AssetTypeUpdateView(LoginRequiredMixin, UpdateView):
+class AssetTypeUpdateView(SuperuserRequiredMixin, UpdateView):
     model = AssetType
-    template_name = 'inventory/asset_type_form.html'
-    fields = ['name', 'display_name']
-    success_url = reverse_lazy('inventory:asset_type_list')
+    form_class = AssetTypeForm
+    template_name = 'inventory/assettype_form.html'
+    success_url = reverse_lazy('inventory:assettype_list')
 
     def form_valid(self, form):
         messages.success(self.request, 'Asset Type updated successfully.')
         return super().form_valid(form)
 
-class AssetTypeDeleteView(LoginRequiredMixin, DeleteView):
+class AssetTypeDeleteView(SuperuserRequiredMixin, DeleteView):
     model = AssetType
-    template_name = 'inventory/asset_type_confirm_delete.html'
-    success_url = reverse_lazy('inventory:asset_type_list')
-
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Asset Type deleted successfully.')
-        return super().delete(request, *args, **kwargs)
+    template_name = 'inventory/assettype_confirm_delete.html'
+    success_url = reverse_lazy('inventory:assettype_list')
 
 # Owner Company Views
 class OwnerCompanyListView(LoginRequiredMixin, ListView):
     model = OwnerCompany
-    template_name = 'inventory/owner_company_list.html'
+    template_name = 'inventory/company_list.html'
     context_object_name = 'companies'
 
-class OwnerCompanyCreateView(LoginRequiredMixin, CreateView):
+    def get_queryset(self):
+        if self.request.user.has_perm('inventory.view_company'):
+            return super().get_queryset()
+        return OwnerCompany.objects.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        access_denied = not self.request.user.has_perm('inventory.view_company')
+        context['access_denied'] = access_denied
+        context['can_add_company'] = self.request.user.has_perm('inventory.add_company') and not access_denied
+        context['can_change_company'] = self.request.user.has_perm('inventory.change_company') and not access_denied
+        context['can_delete_company'] = self.request.user.has_perm('inventory.delete_company') and not access_denied
+        return context
+
+class OwnerCompanyCreateView(SuperuserRequiredMixin, CreateView):
     model = OwnerCompany
-    template_name = 'inventory/owner_company_form.html'
+    template_name = 'inventory/company_form.html'
     fields = ['name']
     success_url = reverse_lazy('inventory:owner_company_list')
 
@@ -946,9 +927,9 @@ class OwnerCompanyCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, 'Owner Company created successfully.')
         return super().form_valid(form)
 
-class OwnerCompanyUpdateView(LoginRequiredMixin, UpdateView):
+class OwnerCompanyUpdateView(SuperuserRequiredMixin, UpdateView):
     model = OwnerCompany
-    template_name = 'inventory/owner_company_form.html'
+    template_name = 'inventory/company_form.html'
     fields = ['name']
     success_url = reverse_lazy('inventory:owner_company_list')
 
@@ -967,9 +948,9 @@ class OwnerCompanyUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, 'Owner Company updated successfully.')
         return super().form_valid(form)
 
-class OwnerCompanyDeleteView(LoginRequiredMixin, DeleteView):
+class OwnerCompanyDeleteView(SuperuserRequiredMixin, DeleteView):
     model = OwnerCompany
-    template_name = 'inventory/owner_company_confirm_delete.html'
+    template_name = 'inventory/company_confirm_delete.html'
     success_url = reverse_lazy('inventory:owner_company_list')
 
     def delete(self, request, *args, **kwargs):
@@ -982,27 +963,41 @@ class DepartmentListView(LoginRequiredMixin, ListView):
     template_name = 'inventory/department_list.html'
     context_object_name = 'departments'
 
-class DepartmentCreateView(LoginRequiredMixin, CreateView):
+    def get_queryset(self):
+        if self.request.user.has_perm('inventory.view_department'):
+            return super().get_queryset()
+        return Department.objects.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        access_denied = not self.request.user.has_perm('inventory.view_department')
+        context['access_denied'] = access_denied
+        context['can_add_department'] = self.request.user.has_perm('inventory.add_department') and not access_denied
+        context['can_change_department'] = self.request.user.has_perm('inventory.change_department') and not access_denied
+        context['can_delete_department'] = self.request.user.has_perm('inventory.delete_department') and not access_denied
+        return context
+
+class DepartmentCreateView(SuperuserRequiredMixin, CreateView):
     model = Department
+    form_class = DepartmentForm
     template_name = 'inventory/department_form.html'
-    fields = ['name', 'description']
     success_url = reverse_lazy('inventory:department_list')
 
     def form_valid(self, form):
         messages.success(self.request, 'Department created successfully.')
         return super().form_valid(form)
 
-class DepartmentUpdateView(LoginRequiredMixin, UpdateView):
+class DepartmentUpdateView(SuperuserRequiredMixin, UpdateView):
     model = Department
+    form_class = DepartmentForm
     template_name = 'inventory/department_form.html'
-    fields = ['name', 'description']
     success_url = reverse_lazy('inventory:department_list')
 
     def form_valid(self, form):
         messages.success(self.request, 'Department updated successfully.')
         return super().form_valid(form)
 
-class DepartmentDeleteView(LoginRequiredMixin, DeleteView):
+class DepartmentDeleteView(SuperuserRequiredMixin, DeleteView):
     model = Department
     template_name = 'inventory/department_confirm_delete.html'
     success_url = reverse_lazy('inventory:department_list')
@@ -1018,30 +1013,15 @@ class AssetHistoryListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('asset', 'assigned_to')
-        
-        # Get filter parameters
-        search_query = self.request.GET.get('search', '')
-        status = self.request.GET.get('status', '')
-        
-        # Apply search filter
-        if search_query:
-            queryset = queryset.filter(
-                Q(asset__name__icontains=search_query) |
-                Q(asset__serial_number__icontains=search_query) |
-                Q(assigned_to__first_name__icontains=search_query) |
-                Q(assigned_to__last_name__icontains=search_query)
-            )
-        
-        # Apply status filter
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        return queryset
+        if self.request.user.has_perm('inventory.view_assethistory'):
+            return super().get_queryset().select_related('asset', 'assigned_to')
+        return AssetHistory.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['status_choices'] = ITAsset.STATUS_CHOICES
+        access_denied = not self.request.user.has_perm('inventory.view_assethistory')
+        context['access_denied'] = access_denied
         return context
 
 # Team Views
@@ -1051,80 +1031,110 @@ class TeamListView(LoginRequiredMixin, ListView):
     context_object_name = 'teams'
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        search_query = self.request.GET.get('search', '')
-        if search_query:
-            queryset = queryset.filter(
-                Q(name__icontains=search_query) |
-                Q(department__name__icontains=search_query) |
-                Q(manager__first_name__icontains=search_query) |
-                Q(manager__last_name__icontains=search_query)
-            )
-        return queryset.select_related('department', 'manager')
-
-class TeamCreateView(LoginRequiredMixin, CreateView):
-    model = Team
-    template_name = 'inventory/team_form.html'
-    fields = ['name', 'department', 'manager', 'description']
-    success_url = reverse_lazy('inventory:team_list')
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        form.fields['manager'].queryset = Employee.objects.filter(is_active=True)
-        return form
+        if self.request.user.has_perm('inventory.view_team'):
+            return super().get_queryset()
+        return Team.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['available_employees'] = Employee.objects.filter(is_active=True)
+        access_denied = not self.request.user.has_perm('inventory.view_team')
+        context['access_denied'] = access_denied
+        context['can_add_team'] = self.request.user.has_perm('inventory.add_team') and not access_denied
+        context['can_change_team'] = self.request.user.has_perm('inventory.change_team') and not access_denied
+        context['can_delete_team'] = self.request.user.has_perm('inventory.delete_team') and not access_denied
         return context
 
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        # Handle team members
-        team_members = self.request.POST.getlist('team_members')
-        if team_members:
-            employees = Employee.objects.filter(id__in=team_members)
-            for employee in employees:
-                employee.team = form.instance
-                employee.save()
-        return response
-
-class TeamUpdateView(LoginRequiredMixin, UpdateView):
+class TeamCreateView(SuperuserRequiredMixin, CreateView):
     model = Team
+    form_class = TeamForm
     template_name = 'inventory/team_form.html'
-    fields = ['name', 'department', 'manager', 'description']
     success_url = reverse_lazy('inventory:team_list')
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        form.fields['manager'].queryset = Employee.objects.filter(is_active=True)
-        return form
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['available_employees'] = Employee.objects.filter(
-            is_active=True,
-            department=self.object.department
+        # Only show employed employees in the manager queryset
+        form.fields['manager'].queryset = Employee.objects.filter(
+            employment_status=Employee.STATUS_EMPLOYED
         )
+        return form
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get all employed employees except the selected manager
+        manager_id = self.request.POST.get('manager')
+        available_employees = Employee.objects.filter(
+            employment_status=Employee.STATUS_EMPLOYED
+        )
+        if manager_id:
+            available_employees = available_employees.exclude(id=manager_id)
+        context['available_employees'] = available_employees
         return context
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        # Handle team members
-        team_members = self.request.POST.getlist('team_members')
+        team = form.instance
         
-        # Remove all current members
-        Employee.objects.filter(team=form.instance).update(team=None)
+        # Get selected team members from form data
+        selected_members = self.request.POST.getlist('team_members')
         
-        # Add selected members
-        if team_members:
-            employees = Employee.objects.filter(id__in=team_members)
-            for employee in employees:
-                employee.team = form.instance
-                employee.save()
+        # Add team members
+        for member_id in selected_members:
+            if member_id != str(team.manager.id):  # Don't add manager as a member
+                TeamMember.objects.create(
+                    team=team,
+                    employee_id=member_id
+                )
+        
         return response
 
-class TeamDeleteView(LoginRequiredMixin, DeleteView):
+class TeamUpdateView(SuperuserRequiredMixin, UpdateView):
+    model = Team
+    form_class = TeamForm
+    template_name = 'inventory/team_form.html'
+    success_url = reverse_lazy('inventory:team_list')
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Only show employed employees in the manager queryset
+        form.fields['manager'].queryset = Employee.objects.filter(
+            employment_status=Employee.STATUS_EMPLOYED
+        )
+        return form
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        team = self.get_object()
+        
+        # Get all employed employees except the current manager
+        available_employees = Employee.objects.filter(
+            employment_status=Employee.STATUS_EMPLOYED
+        ).exclude(id=team.manager.id)
+        
+        context['available_employees'] = available_employees
+        context['current_members'] = team.members.all()
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        team = form.instance
+        
+        # Get selected team members from form data
+        selected_members = self.request.POST.getlist('team_members')
+        
+        # Remove all existing team members
+        team.members.all().delete()
+        
+        # Add new team members
+        for member_id in selected_members:
+            if member_id != str(team.manager.id):  # Don't add manager as a member
+                TeamMember.objects.create(
+                    team=team,
+                    employee_id=member_id
+                )
+        
+        return response
+
+class TeamDeleteView(SuperuserRequiredMixin, DeleteView):
     model = Team
     template_name = 'inventory/team_confirm_delete.html'
     success_url = reverse_lazy('inventory:team_list')
@@ -1144,7 +1154,7 @@ class TeamDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context['members'] = self.object.members.all().select_related('department', 'company')
         context['available_employees'] = Employee.objects.filter(
-            is_active=True,
+            employment_status=Employee.STATUS_EMPLOYED,
             department=self.object.department,
             team__isnull=True
         ).select_related('department', 'company')
@@ -1203,21 +1213,16 @@ def my_teams(request):
     })
 
 # User Management Views
-class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class UserListView(SuperuserRequiredMixin, ListView):
     model = User
     template_name = 'inventory/user_list.html'
     context_object_name = 'users'
-    permission_required = 'inventory.view_user'
 
-    def get_queryset(self):
-        return User.objects.select_related('profile', 'profile__role', 'profile__department', 'profile__team')
-
-class UserCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class UserCreateView(SuperuserRequiredMixin, CreateView):
     model = User
     form_class = UserForm
     template_name = 'inventory/user_form.html'
     success_url = reverse_lazy('inventory:user_list')
-    permission_required = 'inventory.add_user'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1231,20 +1236,55 @@ class UserCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         context = self.get_context_data()
         profile_form = context['profile_form']
         if profile_form.is_valid():
-            user = form.save()
-            profile = profile_form.save(commit=False)
-            profile.user = user
+            user = form.save(commit=False)
+            user.is_active = True
+            user.save()
+            
+            # Get or create profile
+            profile, created = UserProfile.objects.get_or_create(
+                user=user,
+                defaults={'role': None}  # Don't set default role, we'll set it from form
+            )
+            
+            # Set role from form
+            role = profile_form.cleaned_data.get('role')
+            if role:
+                profile.role = role
+                # Clear any existing permissions and set only the role's permissions
+                user.user_permissions.clear()
+                for permission in role.permissions.all():
+                    user.user_permissions.add(permission)
+            else:
+                # If no role selected, set default role but don't grant any permissions
+                default_role = Role.objects.first()
+                if default_role:
+                    profile.role = default_role
+                    # Don't grant any permissions for default role
+                    user.user_permissions.clear()
+                else:
+                    messages.error(self.request, 'No roles available in the system. Please create a role first.')
+                    return self.form_invalid(form)
+
+            # Update other profile fields
+            profile.department = profile_form.cleaned_data.get('department')
+            profile.team = profile_form.cleaned_data.get('team')
             profile.save()
+
+            # Assign user to employee if selected
+            employee = profile_form.cleaned_data.get('employee')
+            if employee:
+                employee.user = user
+                employee.save()
+
             messages.success(self.request, 'User created successfully.')
             return redirect(self.success_url)
         return self.render_to_response(self.get_context_data(form=form))
 
-class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class UserUpdateView(SuperuserRequiredMixin, UpdateView):
     model = User
     form_class = UserForm
     template_name = 'inventory/user_form.html'
     success_url = reverse_lazy('inventory:user_list')
-    permission_required = 'inventory.change_user'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1260,15 +1300,29 @@ class UserUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         if profile_form.is_valid():
             user = form.save()
             profile_form.save()
+
+            newly_assigned_employee = profile_form.cleaned_data.get('employee')
+            currently_assigned_employee = user.employee_profile if hasattr(user, 'employee_profile') else None
+
+            if newly_assigned_employee != currently_assigned_employee:
+                # Un-assign the old employee if there was one
+                if currently_assigned_employee:
+                    currently_assigned_employee.user = None
+                    currently_assigned_employee.save()
+                
+                # Assign the new employee if one was selected
+                if newly_assigned_employee:
+                    newly_assigned_employee.user = user
+                    newly_assigned_employee.save()
+
             messages.success(self.request, 'User updated successfully.')
             return redirect(self.success_url)
         return self.render_to_response(self.get_context_data(form=form))
 
-class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class UserDeleteView(SuperuserRequiredMixin, DeleteView):
     model = User
     template_name = 'inventory/user_confirm_delete.html'
     success_url = reverse_lazy('inventory:user_list')
-    permission_required = 'inventory.delete_user'
 
     def get(self, request, *args, **kwargs):
         # Check if this is the last user
@@ -1316,18 +1370,26 @@ class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 # Role Management Views
-class RoleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class RoleListView(LoginRequiredMixin, ListView):
     model = Role
     template_name = 'inventory/role_list.html'
     context_object_name = 'roles'
-    permission_required = 'inventory.view_role'
 
-class RoleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    def get_queryset(self):
+        if self.request.user.has_perm('inventory.view_role'):
+            return super().get_queryset()
+        return Role.objects.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['access_denied'] = not self.request.user.has_perm('inventory.view_role')
+        return context
+
+class RoleCreateView(SuperuserRequiredMixin, CreateView):
     model = Role
     form_class = RoleForm
     template_name = 'inventory/role_form.html'
     success_url = reverse_lazy('inventory:role_list')
-    permission_required = 'inventory.add_role'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1356,11 +1418,10 @@ class RoleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         messages.success(self.request, 'Role created successfully.')
         return redirect(self.get_success_url())
 
-class RoleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class RoleUpdateView(SuperuserRequiredMixin, UpdateView):
     model = Role
     form_class = RoleForm
     template_name = 'inventory/role_form.html' # Use the unified template
-    permission_required = 'inventory.change_role'
     success_url = reverse_lazy('inventory:role_list')
 
     def get_context_data(self, **kwargs):
@@ -1392,11 +1453,10 @@ class RoleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         messages.success(self.request, 'Role updated successfully.')
         return redirect(self.get_success_url())
 
-class RoleDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class RoleDeleteView(SuperuserRequiredMixin, DeleteView):
     model = Role
     template_name = 'inventory/role_confirm_delete.html'
     success_url = reverse_lazy('inventory:role_list')
-    permission_required = 'inventory.delete_role'
 
     def get(self, request, *args, **kwargs):
         role = self.get_object()
@@ -1425,71 +1485,47 @@ def logout_view(request):
     logout(request)
     return redirect('/accounts/login/')
 
-# Message Views
-class MessageListView(LoginRequiredMixin, ListView):
-    model = Message
-    template_name = 'inventory/message_list.html'
-    context_object_name = 'messages'
-    paginate_by = 10
+# Ticket Views
+class TicketListView(LoginRequiredMixin, ListView):
+    model = Ticket
+    template_name = 'inventory/ticket_list.html'
+    context_object_name = 'tickets'
 
     def get_queryset(self):
-        return Message.objects.filter(
-            recipient=self.request.user,
-            parent_message__isnull=True  # Only show parent messages
-        ).select_related('sender', 'recipient', 'asset', 'employee')
+        if self.request.user.has_perm('inventory.view_ticket'):
+            return Ticket.objects.filter(
+                Q(sender=self.request.user) | Q(recipient=self.request.user),
+                parent_ticket__isnull=True
+            ).select_related('sender', 'recipient', 'asset', 'employee').order_by('-created_at')
+        return Ticket.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['unread_messages_count'] = Message.objects.filter(
+        access_denied = not self.request.user.has_perm('inventory.view_ticket')
+        context['access_denied'] = access_denied
+        context['can_add_ticket'] = self.request.user.has_perm('inventory.add_ticket') and not access_denied
+        context['can_change_ticket'] = self.request.user.has_perm('inventory.change_ticket') and not access_denied
+        context['can_delete_ticket'] = self.request.user.has_perm('inventory.delete_ticket') and not access_denied
+        context['unread_tickets_count'] = Ticket.objects.filter(
             recipient=self.request.user,
             is_read=False
-        ).count()
-        # Check for new replies received by the user
-        context['has_new_replies'] = Message.objects.filter(
+        ).count() if not access_denied else 0
+        context['has_new_replies'] = Ticket.objects.filter(
             recipient=self.request.user,
             replies__has_new_reply=True
-        ).exists()
+        ).exists() if not access_denied else False
         return context
 
-class SentMessageListView(LoginRequiredMixin, ListView):
-    model = Message
-    template_name = 'inventory/sent_message_list.html'
-    context_object_name = 'messages'
-    paginate_by = 10
-
-    def get_queryset(self):
-        return Message.objects.filter(
-            sender=self.request.user,
-            parent_message__isnull=True  # Only show parent messages, not replies
-        ).select_related('recipient')
-
-    def get(self, request, *args, **kwargs):
-        # Clear any existing messages before rendering the view
-        storage = messages.get_messages(request)
-        storage.used = True
-        return super().get(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Clear any existing messages
-        storage = messages.get_messages(self.request)
-        storage.used = True
-        context['unread_messages_count'] = Message.objects.filter(
-            recipient=self.request.user,
-            is_read=False
-        ).count()
-        return context
-
-class MessageCreateView(LoginRequiredMixin, CreateView):
-    model = Message
-    form_class = MessageForm
-    template_name = 'inventory/message_form.html'
-    success_url = reverse_lazy('inventory:sent_message_list')
+class TicketCreateView(SuperuserRequiredMixin, CreateView):
+    model = Ticket
+    form_class = TicketForm
+    template_name = 'inventory/ticket_form.html'
+    success_url = reverse_lazy('inventory:ticket_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['users'] = User.objects.filter(is_active=True).exclude(id=self.request.user.id).order_by('username')
-        context['unread_messages_count'] = Message.objects.filter(
+        context['unread_tickets_count'] = Ticket.objects.filter(
             recipient=self.request.user,
             is_read=False
         ).count()
@@ -1503,45 +1539,45 @@ class MessageCreateView(LoginRequiredMixin, CreateView):
                 return self.form_invalid(form)
             
             recipient = get_object_or_404(User, id=recipient_id)
-            message = form.save(commit=False)
-            message.sender = self.request.user
-            message.recipient = recipient
-            message.save()
+            ticket = form.save(commit=False)
+            ticket.sender = self.request.user
+            ticket.recipient = recipient
+            ticket.save()
+            messages.success(self.request, 'Ticket created successfully.')
             return redirect(self.success_url)
         except Exception as e:
-            messages.error(self.request, f'Error sending message: {str(e)}')
+            messages.error(self.request, f'Error creating ticket: {str(e)}')
             return self.form_invalid(form)
 
     def form_invalid(self, form):
-        messages.error(self.request, 'There was an error sending your message. Please check the form and try again.')
+        messages.error(self.request, 'There was an error creating your ticket. Please check the form and try again.')
         return self.render_to_response(self.get_context_data(form=form))
 
-class MessageDetailView(LoginRequiredMixin, DetailView):
-    model = Message
-    template_name = 'inventory/message_detail.html'
-    context_object_name = 'message'
+class TicketDetailView(SuperuserRequiredMixin, DetailView):
+    model = Ticket
+    template_name = 'inventory/ticket_detail.html'
+    context_object_name = 'ticket'
 
     def get_queryset(self):
-        return Message.objects.filter(
+        return Ticket.objects.filter(
             Q(sender=self.request.user) | Q(recipient=self.request.user)
         ).select_related('sender', 'recipient', 'asset', 'employee')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        message = self.get_object()
+        ticket = self.get_object()
         
-        # Mark message as read if the current user is the recipient
-        if self.request.user == message.recipient and not message.is_read:
-            message.mark_as_read()
+        # Mark ticket as read if the current user is the recipient
+        if self.request.user == ticket.recipient and not ticket.is_read:
+            ticket.mark_as_read()
         
-        # Get all replies to this message
-        replies = message.get_replies()
+        # Get all replies to this ticket
+        replies = ticket.get_replies()
         
-        # Mark replies as read and clear has_new_reply flag when viewing the message
-        if self.request.user == message.recipient:
-            # Mark all replies as read and clear has_new_reply flag
-            Message.objects.filter(
-                parent_message=message,
+        # Mark replies as read and clear has_new_reply flag when viewing the ticket
+        if self.request.user == ticket.recipient:
+            Ticket.objects.filter(
+                parent_ticket=ticket,
                 recipient=self.request.user,
                 is_read=False
             ).update(
@@ -1549,12 +1585,11 @@ class MessageDetailView(LoginRequiredMixin, DetailView):
                 has_new_reply=False
             )
             
-            # Also clear has_new_reply flag on the parent message
-            message.has_new_reply = False
-            message.save(update_fields=['has_new_reply'])
+            ticket.has_new_reply = False
+            ticket.save(update_fields=['has_new_reply'])
         
         context['replies'] = replies
-        context['unread_messages_count'] = Message.objects.filter(
+        context['unread_tickets_count'] = Ticket.objects.filter(
             recipient=self.request.user,
             is_read=False
         ).count()
@@ -1563,72 +1598,62 @@ class MessageDetailView(LoginRequiredMixin, DetailView):
     def get(self, request, *args, **kwargs):
         response = super().get(request, *args, **kwargs)
         if self.object.recipient == request.user and not self.object.is_read:
-            Message.objects.filter(pk=self.object.pk).update(is_read=True)
+            Ticket.objects.filter(pk=self.object.pk).update(is_read=True)
             self.object.refresh_from_db()
         return response
 
-class MessageDeleteView(LoginRequiredMixin, DeleteView):
-    model = Message
-    template_name = 'inventory/message_confirm_delete.html'
+class TicketDeleteView(SuperuserRequiredMixin, DeleteView):
+    model = Ticket
+    template_name = 'inventory/ticket_confirm_delete.html'
+    success_url = reverse_lazy('inventory:ticket_list')
 
     def get_queryset(self):
-        # Allow deleting messages where user is either sender or recipient
-        return Message.objects.filter(
+        return Ticket.objects.filter(
             Q(sender=self.request.user) | Q(recipient=self.request.user)
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['unread_messages_count'] = Message.objects.filter(
+        context['unread_tickets_count'] = Ticket.objects.filter(
             recipient=self.request.user,
             is_read=False
         ).count()
-        # Add the source URL to the context
         context['source_url'] = self.request.GET.get('source', 'inbox')
         return context
 
     def get_success_url(self):
-        # Get the source from the URL parameter
         source = self.request.GET.get('source', 'inbox')
         
         if source == 'sent':
-            return reverse_lazy('inventory:sent_message_list')
+            return reverse_lazy('inventory:ticket_list')
         elif source == 'detail':
-            # If deleting from detail view, redirect back to the message
-            message = self.get_object()
-            if message.parent_message:
-                return reverse_lazy('inventory:message_detail', kwargs={'pk': message.parent_message.id})
-            return reverse_lazy('inventory:message_detail', kwargs={'pk': message.id})
-        return reverse_lazy('inventory:message_list')
+            ticket = self.get_object()
+            if ticket.parent_ticket:
+                return reverse_lazy('inventory:ticket_detail', kwargs={'pk': ticket.parent_ticket.id})
+            return reverse_lazy('inventory:ticket_list')
+        return reverse_lazy('inventory:ticket_list')
 
     def delete(self, request, *args, **kwargs):
-        message = self.get_object()
+        ticket = self.get_object()
         
-        # Check if user is either sender or recipient
-        if message.sender != request.user and message.recipient != request.user:
-            messages.error(request, 'You can only delete your own messages.')
-            return redirect('inventory:message_list')
+        if ticket.sender != request.user and ticket.recipient != request.user:
+            messages.error(request, 'You can only delete your own tickets.')
+            return redirect('inventory:ticket_list')
         
-        # If this is a parent message, only delete this specific message
-        # Don't delete replies
-        if not message.parent_message:
-            message.delete()
-        else:
-            # If this is a reply, just delete the reply
-            message.delete()
-        
+        ticket.delete()
+        messages.success(request, 'Ticket deleted successfully.')
         return redirect(self.get_success_url())
 
-class MessageReplyView(LoginRequiredMixin, CreateView):
-    model = Message
-    form_class = MessageForm
-    template_name = 'inventory/message_reply.html'
+class TicketReplyView(SuperuserRequiredMixin, CreateView):
+    model = Ticket
+    form_class = TicketForm
+    template_name = 'inventory/ticket_reply.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        original_message = get_object_or_404(Message, pk=self.kwargs['pk'])
-        context['original_message'] = original_message
-        context['unread_messages_count'] = Message.objects.filter(
+        original_ticket = get_object_or_404(Ticket, pk=self.kwargs['pk'])
+        context['original_ticket'] = original_ticket
+        context['unread_tickets_count'] = Ticket.objects.filter(
             recipient=self.request.user,
             is_read=False
         ).count()
@@ -1636,26 +1661,24 @@ class MessageReplyView(LoginRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        original_message = get_object_or_404(Message, pk=self.kwargs['pk'])
-        kwargs['original_message'] = original_message
+        original_ticket = get_object_or_404(Ticket, pk=self.kwargs['pk'])
+        kwargs['original_message'] = original_ticket
         return kwargs
 
     def form_valid(self, form):
         try:
-            original_message = get_object_or_404(Message, pk=self.kwargs['pk'])
-            message = form.save(commit=False)
-            message.sender = self.request.user
-            message.recipient = original_message.sender
-            message.parent_message = original_message
-            message.has_new_reply = True  # Set has_new_reply on the reply
-            message.save()
+            original_ticket = get_object_or_404(Ticket, pk=self.kwargs['pk'])
+            ticket = form.save(commit=False)
+            ticket.sender = self.request.user
+            ticket.recipient = original_ticket.sender
+            ticket.parent_ticket = original_ticket
+            ticket.has_new_reply = True
+            ticket.save()
 
-            # Set has_new_reply flag on the parent message
-            original_message.has_new_reply = True
-            original_message.save(update_fields=['has_new_reply'])
+            original_ticket.has_new_reply = True
+            original_ticket.save(update_fields=['has_new_reply'])
 
-            # Redirect back to the message detail page
-            return redirect('inventory:message_detail', pk=original_message.id)
+            return redirect('inventory:ticket_detail', pk=original_ticket.id)
         except Exception as e:
             messages.error(self.request, f'Error sending reply: {str(e)}')
             return self.form_invalid(form)
@@ -1664,23 +1687,22 @@ class MessageReplyView(LoginRequiredMixin, CreateView):
         messages.error(self.request, 'There was an error sending your reply. Please check the form and try again.')
         return self.render_to_response(self.get_context_data(form=form))
 
-def message_notifications(request):
-    """Stream message notifications using Server-Sent Events."""
+def ticket_notifications(request):
+    """Stream ticket notifications using Server-Sent Events."""
     def event_stream():
         last_check = time.time()
         while True:
-            # Check for new messages
-            new_messages = Message.objects.filter(
+            new_tickets = Ticket.objects.filter(
                 recipient=request.user,
                 created_at__gt=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_check))
             ).exists()
             
-            if new_messages:
-                data = json.dumps({'has_new_messages': True})
+            if new_tickets:
+                data = json.dumps({'has_new_tickets': True})
                 yield f"data: {data}\n\n"
             
             last_check = time.time()
-            time.sleep(5)  # Check every 5 seconds
+            time.sleep(5)
     
     response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
     response['Cache-Control'] = 'no-cache'
@@ -1689,15 +1711,14 @@ def message_notifications(request):
 
 @login_required
 def check_replies(request, pk):
-    """Check if there are new replies to a message."""
-    message = get_object_or_404(Message, pk=pk)
+    """Check if there are new replies to a ticket."""
+    ticket = get_object_or_404(Ticket, pk=pk)
     
-    # Get the last reply timestamp from the request
     last_check = request.GET.get('last_check')
     if last_check:
         try:
             last_check = datetime.fromisoformat(last_check.replace('Z', '+00:00'))
-            has_new_replies = message.replies.filter(created_at__gt=last_check).exists()
+            has_new_replies = ticket.replies.filter(created_at__gt=last_check).exists()
         except (ValueError, TypeError):
             has_new_replies = False
     else:
@@ -1705,20 +1726,33 @@ def check_replies(request, pk):
     
     return JsonResponse({'has_new_replies': has_new_replies})
 
-def message_context_processor(request):
-    """Add message-related context to all templates."""
+def ticket_context_processor(request):
+    """Add ticket-related context to all templates."""
     if request.user.is_authenticated:
         return {
-            'unread_messages_count': Message.objects.filter(
+            'unread_tickets_count': Ticket.objects.filter(
                 recipient=request.user,
                 is_read=False
             ).count(),
-            'has_new_replies': Message.objects.filter(
+            'has_new_replies': Ticket.objects.filter(
                 recipient=request.user,
                 replies__has_new_reply=True
             ).exists()
         }
     return {
-        'unread_messages_count': 0,
+        'unread_tickets_count': 0,
         'has_new_replies': False
-    }  
+    }
+
+def get_department_positions(request, department_id):
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    positions = Position.objects.filter(department_id=department_id).order_by('name')
+    positions_data = [{'id': pos.id, 'name': pos.name} for pos in positions]
+    return JsonResponse(positions_data, safe=False)
+
+def custom_403(request, exception=None):
+    return render(request, '403.html', status=403)
+
+def custom_404(request, exception=None):
+    return render(request, '404.html', status=404)  

@@ -8,20 +8,12 @@ User = get_user_model()
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
-        # Get or create the default role
+        # Get or create the default role with no permissions
         default_role, _ = Role.objects.get_or_create(
             name='User',
             defaults={
-                'description': 'Default user role',
-                'permissions': {
-                    'view_asset': True,
-                    'view_employee': True,
-                    'view_department': True,
-                    'view_company': True,
-                    'view_assettype': True,
-                    'view_role': True,
-                    'view_user': True,
-                }
+                'description': 'Default user role with no permissions',
+                'permissions': {}
             }
         )
         UserProfile.objects.create(user=instance, role=default_role)

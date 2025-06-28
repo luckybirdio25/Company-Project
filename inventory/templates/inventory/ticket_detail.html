@@ -1,0 +1,216 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}Ticket Details{% endblock %}
+
+{% block extra_css %}
+<style>
+    .message-thread {
+        max-width: 100%;
+    }
+    
+    .message {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .original-message {
+        border-left: 4px solid #007bff;
+    }
+    
+    .reply-message {
+        border-left: 4px solid #28a745;
+        margin-left: 40px;
+    }
+    
+    .message-header {
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .message-subject h4 {
+        color: #2c3e50;
+        margin-bottom: 15px;
+    }
+    
+    .message-content {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        margin: 15px 0;
+    }
+    
+    .message-meta {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .message-actions {
+        margin-top: 15px;
+    }
+    
+    .message-references {
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-top: 15px;
+    }
+    
+    .message-references a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    
+    .message-references a:hover {
+        text-decoration: underline;
+    }
+    
+    .btn-reply {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+    
+    .btn-reply:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+
+    .replies-section {
+        margin-top: 30px;
+    }
+
+    .replies-title {
+        color: #28a745;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #28a745;
+    }
+
+    .replies-count {
+        background-color: #28a745;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 10px;
+    }
+
+    #replies-container {
+        transition: all 0.3s ease;
+    }
+
+    .new-reply {
+        animation: slideIn 0.5s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-ticket-alt me-2"></i>Ticket Details
+        </h1>
+        <a href="{% url 'inventory:ticket_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to My Tickets
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ ticket.subject }}</h5>
+                <span class="badge bg-secondary fs-6">{{ ticket.ticket_number }}</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between text-muted mb-3">
+                <span>
+                    <strong>From:</strong> {{ ticket.sender.get_full_name|default:ticket.sender.username }}
+                </span>
+                <span>
+                    <strong>To:</strong> {{ ticket.recipient.get_full_name|default:ticket.recipient.username }}
+                </span>
+                <span>
+                    <strong>Date:</strong> {{ ticket.created_at|date:"M d, Y, P" }}
+                </span>
+            </div>
+            <hr>
+            <div class="ticket-content">
+                {{ ticket.content|safe }}
+            </div>
+        </div>
+    </div>
+
+    <div class="replies-section">
+        <h4 class="mb-3">Replies</h4>
+        {% for reply in replies %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between text-muted mb-2">
+                        <span>
+                            <strong>From:</strong> {{ reply.sender.get_full_name|default:reply.sender.username }}
+                        </span>
+                        <span>
+                            <strong>Date:</strong> {{ reply.created_at|date:"M d, Y, P" }}
+                        </span>
+                    </div>
+                    <div class="reply-content">
+                        {{ reply.content|safe }}
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <p>No replies yet.</p>
+        {% endfor %}
+    </div>
+
+    <div class="reply-form mt-4">
+        <a href="{% url 'inventory:ticket_reply' ticket.id %}" class="btn btn-primary">
+            <i class="fas fa-reply me-2"></i>Reply to this Ticket
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Function to check for new replies
+    function checkForNewReplies() {
+        fetch(`/inventory/tickets/${ticketId}/check-replies/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.has_new_replies) {
+                    // Reload the page to show new replies
+                    window.location.reload();
+                }
+            })
+            .catch(error => console.error('Error checking for replies:', error));
+    }
+
+    // Get the ticket ID from the URL
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const ticketId = pathParts[pathParts.length - 1];
+
+    // Check for new replies every 5 seconds
+    setInterval(checkForNewReplies, 5000);
+</script>
+{% endblock %} 

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    {% if user.is_superuser %}
+        <!-- Superuser Dashboard Content -->
+        <div class="row">
+            <!-- Your existing dashboard content here -->
+        </div>
+    {% else %}
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        <i class="fas fa-database fa-4x text-muted mb-4"></i>
+                        <h1 class="display-4 mb-4">No Data Available</h1>
+                        <p class="lead mb-4">There is no data to display at this time.</p>
+                        <p class="text-muted mb-4">Please contact your administrator for access.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

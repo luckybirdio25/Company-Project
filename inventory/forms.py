@@ -1,5 +1,7 @@
 from django import forms
-from .models import Employee, ITAsset, Department, OwnerCompany, User, UserProfile, Role, Message
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from .models import Employee, ITAsset, Department, Position, AssetType, OwnerCompany, Team, Role, Ticket, UserProfile
 
 class EmployeeForm(forms.ModelForm):
     """Form for creating and updating Employee records."""
@@ -12,19 +14,23 @@ class EmployeeForm(forms.ModelForm):
             'first_name',
             'last_name',
             'email',
-            'phone_number',
+            'phone',
             'department',
             'position',
             'hire_date',
             'company',
-            'is_active',
+            'employment_status',
+            'retirement_date',
+            'resignation_date',
+            'training_start_date',
+            'training_end_date',
         ]
         widgets = {
             'employee_id': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter employee ID (e.g., EMP001)',
-                'pattern': '^EMP\d{3}$',
-                'title': 'Employee ID must be in the format EMP001'
+                'placeholder': 'Enter employee ID (e.g., 9970)',
+                'pattern': '^\d+$',
+                'title': 'Employee ID must contain only numbers'
             }),
             'national_id': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -44,21 +50,22 @@ class EmployeeForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Enter email address'
             }),
-            'phone_number': forms.TextInput(attrs={
+            'phone': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter phone number'
             }),
-            'department': forms.Select(attrs={'class': 'form-select'}),
-            'position': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Enter position'
+            'department': forms.Select(attrs={
+                'class': 'form-select',
+                'onchange': 'updatePositions(this.value)'
             }),
-            'hire_date': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
+            'position': forms.Select(attrs={'class': 'form-select'}),
+            'hire_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'company': forms.Select(attrs={'class': 'form-select'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'employment_status': forms.Select(attrs={'class': 'form-select'}),
+            'retirement_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'resignation_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'training_start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'training_end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -74,19 +81,78 @@ class EmployeeForm(forms.ModelForm):
         self.fields['department'].queryset = Department.objects.all().order_by('name')
         self.fields['department'].empty_label = "Select Department"
         
+        # Update position choices based on department
+        if self.instance and self.instance.department:
+            self.fields['position'].queryset = Position.objects.filter(
+                department=self.instance.department
+            ).order_by('name')
+        else:
+            self.fields['position'].queryset = Position.objects.none()
+        self.fields['position'].empty_label = "Select Position"
+        
         # Update company choices
         self.fields['company'].queryset = OwnerCompany.objects.all().order_by('name')
         self.fields['company'].empty_label = "Select Company"
-        
-        # Add help text for national ID
-        self.fields['national_id'].help_text = "Enter the 14-digit national ID number"
-        
-        # Add help text for employee ID
-        self.fields['employee_id'].help_text = "Enter employee ID (letters and numbers only)"
-        self.fields['employee_id'].widget.attrs.update({
-            'pattern': '^[A-Za-z0-9]+$',
-            'title': 'Employee ID must contain only letters and numbers'
+
+        # Add JavaScript to handle employment status changes
+        self.fields['employment_status'].widget.attrs.update({
+            'onchange': 'handleEmploymentStatusChange(this.value)'
         })
+
+    def clean(self):
+        cleaned_data = super().clean()
+        department = cleaned_data.get('department')
+        position = cleaned_data.get('position')
+
+        if department and position:
+            if not Position.objects.filter(department=department, id=position.id).exists():
+                self.add_error('position', 'Please select a valid position for the selected department.')
+
+        employment_status = cleaned_data.get('employment_status')
+
+        if employment_status == 'training':
+            training_start_date = cleaned_data.get('training_start_date')
+            training_end_date = cleaned_data.get('training_end_date')
+
+            if not training_start_date:
+                self.add_error('training_start_date', 'This field is required when employment status is "Training".')
+            if not training_end_date:
+                self.add_error('training_end_date', 'This field is required when employment status is "Training".')
+            
+            # Clear other date fields
+            cleaned_data['hire_date'] = None
+            cleaned_data['retirement_date'] = None
+            cleaned_data['resignation_date'] = None
+
+        elif employment_status == 'employed':
+            hire_date = cleaned_data.get('hire_date')
+            if not hire_date:
+                self.add_error('hire_date', 'Hire date is required for employed status.')
+            
+            # Clear other date fields
+            cleaned_data['retirement_date'] = None
+            cleaned_data['resignation_date'] = None
+            cleaned_data['training_start_date'] = None
+            cleaned_data['training_end_date'] = None
+
+        elif employment_status == 'terminated':
+            resignation_date = cleaned_data.get('resignation_date')
+            if not resignation_date:
+                self.add_error('resignation_date', 'Resignation date is required for terminated status.')
+            
+            # Clear other date fields
+            cleaned_data['retirement_date'] = None
+            cleaned_data['training_start_date'] = None
+            cleaned_data['training_end_date'] = None
+
+        elif employment_status == 'on_leave':
+            # Clear all date fields except hire_date
+            cleaned_data['retirement_date'] = None
+            cleaned_data['resignation_date'] = None
+            cleaned_data['training_start_date'] = None
+            cleaned_data['training_end_date'] = None
+
+        return cleaned_data
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
@@ -98,8 +164,8 @@ class EmployeeForm(forms.ModelForm):
         employee_id = self.cleaned_data.get('employee_id')
         if not employee_id:
             raise forms.ValidationError('Employee ID is required.')
-        if not employee_id.isalnum():
-            raise forms.ValidationError('Employee ID must contain only letters and numbers.')
+        if not employee_id.isdigit():
+            raise forms.ValidationError('Employee ID must contain only numbers.')
         if Employee.objects.exclude(pk=self.instance.pk if self.instance else None).filter(employee_id=employee_id).exists():
             raise forms.ValidationError('This employee ID is already in use.')
         return employee_id
@@ -279,6 +345,14 @@ class UserForm(forms.ModelForm):
         return user
 
 class UserProfileForm(forms.ModelForm):
+    employee = forms.ModelChoiceField(
+        queryset=Employee.objects.none(),  # Will be populated in __init__
+        required=False,
+        label="Assign to Employee",
+        help_text="Optional: assign this user to an existing employee profile.",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
     class Meta:
         model = UserProfile
         fields = ['role', 'department', 'team']
@@ -287,6 +361,26 @@ class UserProfileForm(forms.ModelForm):
             'department': forms.Select(attrs={'class': 'form-control'}),
             'team': forms.Select(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Get employees that don't have a user yet
+        unassigned_employees = Employee.objects.filter(user__isnull=True)
+        
+        current_employee = None
+        # Only check for an existing employee if we are updating a saved profile
+        if self.instance and self.instance.pk:
+            if hasattr(self.instance.user, 'employee_profile'):
+                current_employee = self.instance.user.employee_profile
+
+        if current_employee:
+            # Combine unassigned employees with the current employee
+            self.fields['employee'].queryset = unassigned_employees | Employee.objects.filter(pk=current_employee.pk)
+            # Set the initial value for the employee field
+            self.fields['employee'].initial = current_employee
+        else:
+            self.fields['employee'].queryset = unassigned_employees
 
 class RoleForm(forms.ModelForm):
     class Meta:
@@ -297,44 +391,123 @@ class RoleForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
-class MessageForm(forms.ModelForm):
+class TicketForm(forms.ModelForm):
     class Meta:
-        model = Message
+        model = Ticket
         fields = ['subject', 'content', 'asset', 'employee']
         widgets = {
-            'subject': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Enter message subject'
-            }),
-            'content': forms.Textarea(attrs={
-                'class': 'form-control rich-text-editor',
-                'rows': 10,
-                'placeholder': 'Enter your message'
-            }),
+            'subject': forms.TextInput(attrs={'class': 'form-control'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
             'asset': forms.Select(attrs={'class': 'form-select'}),
             'employee': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
-        self.original_message = kwargs.pop('original_message', None)
         super().__init__(*args, **kwargs)
+        # Filter employees to show only employed ones
+        self.fields['employee'].queryset = Employee.objects.filter(employment_status='employed').order_by('first_name', 'last_name')
+        self.fields['employee'].empty_label = "Select Employee"
         
-        # Configure asset field
-        self.fields['asset'].queryset = ITAsset.objects.all().order_by('name')
-        self.fields['asset'].empty_label = "Select an Asset (Optional)"
-        self.fields['asset'].required = False
-        
-        # Configure employee field
-        self.fields['employee'].queryset = Employee.objects.filter(is_active=True).order_by('first_name', 'last_name')
-        self.fields['employee'].empty_label = "Select an Employee (Optional)"
-        self.fields['employee'].required = False
-        
-        # Make subject and content required
-        self.fields['subject'].required = True
-        self.fields['content'].required = True
+        # Filter assets to show only available ones
+        self.fields['asset'].queryset = ITAsset.objects.filter(status='available').order_by('name')
+        self.fields['asset'].empty_label = "Select Asset"
 
-        # If this is a reply, set the initial values
-        if self.original_message:
-            self.fields['subject'].initial = f"Re: {self.original_message.subject}"
-            self.fields['asset'].initial = self.original_message.asset
-            self.fields['employee'].initial = self.original_message.employee 
+class AssetTypeForm(forms.ModelForm):
+    class Meta:
+        model = AssetType
+        fields = ['name', 'display_name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'display_name': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+class DepartmentForm(forms.ModelForm):
+    positions = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': '3',
+            'placeholder': 'Enter positions (one per line)'
+        }),
+        required=False,
+        help_text='Enter positions for this department, one per line'
+    )
+
+    class Meta:
+        model = Department
+        fields = ['name', 'description', 'positions']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': '3'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            # Get existing positions for this department
+            positions = Position.objects.filter(department=self.instance).order_by('name')
+            self.fields['positions'].initial = '\n'.join(p.name for p in positions)
+
+    def save(self, commit=True):
+        department = super().save(commit=False)
+        if commit:
+            department.save()
+            # Update positions
+            if 'positions' in self.cleaned_data:
+                # Delete existing positions
+                Position.objects.filter(department=department).delete()
+                # Create new positions
+                positions_text = self.cleaned_data['positions'].strip()
+                if positions_text:
+                    for position_name in positions_text.split('\n'):
+                        position_name = position_name.strip()
+                        if position_name:
+                            Position.objects.create(
+                                name=position_name,
+                                department=department
+                            )
+        return department
+
+class CompanyForm(forms.ModelForm):
+    class Meta:
+        model = OwnerCompany
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+class TeamForm(forms.ModelForm):
+    class Meta:
+        model = Team
+        fields = ['name', 'department', 'manager', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter team name'
+            }),
+            'department': forms.Select(attrs={'class': 'form-select'}),
+            'manager': forms.Select(attrs={'class': 'form-select'}),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter team description',
+                'rows': 3
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add Bootstrap classes to all form fields
+        for field_name, field in self.fields.items():
+            if not isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect)):
+                field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
+            if field.required:
+                field.widget.attrs['required'] = 'required'
+        
+        # Update department choices
+        self.fields['department'].queryset = Department.objects.all().order_by('name')
+        self.fields['department'].empty_label = "Select Department"
+        
+        # Update manager choices to only show employed employees
+        self.fields['manager'].queryset = Employee.objects.filter(
+            employment_status=Employee.STATUS_EMPLOYED
+        ).order_by('first_name', 'last_name')
+        self.fields['manager'].empty_label = "Select Team Manager" 

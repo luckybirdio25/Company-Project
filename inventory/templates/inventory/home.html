@@ -45,276 +45,412 @@
 {% endblock %}
 
 {% block content %}
-<!-- Dashboard Header -->
-<div class="dashboard-header">
-    <div class="container-fluid">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h1></h1>
-                <p class="mb-0">    </p>
-            </div>
-            <div class="col-md-6 text-md-end">
-                <div class="btn-group">
-                    <a href="{% url 'inventory:asset_create' %}" class="btn btn-primary">
-                        <i class="fas fa-plus me-2"></i>Add New Asset
-                    </a>
-                    <a href="{% url 'inventory:employee_create' %}" class="btn btn-outline-primary">
-                        <i class="fas fa-user-plus me-2"></i>Add New Employee
-                    </a>
-                </div>
-            </div>
+<div class="container-fluid mt-4">
+    {% if show_no_data %}
+        <div class="alert alert-danger text-center" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i> Access Denied: You do not have permission to view the dashboard.
         </div>
-    </div>
-</div>
-
-
-
-
-<div class="container-fluid">
-    <!-- Statistics Cards -->
-    <div class="row g-4 mb-4">
-        <!-- Total Assets -->
-        <div class="col-md-3">
-            <div class="card stat-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Assets</h6>
-                            <h2 class="mb-0">{{ total_assets }}</h2>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 p-3 rounded">
-                            <i class="fas fa-laptop text-primary fa-2x"></i>
+        <!-- Render dashboard sections as empty -->
+        <div class="dashboard-header">
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h1></h1>
+                        <p class="mb-0"></p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="btn-group">
+                            <a href="#" class="btn btn-primary" disabled title="Access Denied">
+                                <i class="fas fa-plus me-2"></i>Add New Asset
+                            </a>
+                            <a href="#" class="btn btn-outline-primary" disabled title="Access Denied">
+                                <i class="fas fa-user-plus me-2"></i>Add New Employee
+                            </a>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Available Assets -->
-        <div class="col-md-3">
-            <div class="card stat-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Available Assets</h6>
-                            <h2 class="mb-0">{{ available_assets }}</h2>
+        <div class="container-fluid">
+            <!-- Statistics Cards -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Total Assets</h6>
+                                    <h2 class="mb-0 text-muted">-</h2>
+                                </div>
+                                <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-laptop text-primary fa-2x"></i>
+                                </div>
+                            </div>
                         </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="fas fa-check-circle text-success fa-2x"></i>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Available Assets</h6>
+                                    <h2 class="mb-0 text-muted">-</h2>
+                                </div>
+                                <div class="bg-success bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-check-circle text-success fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Assigned Assets</h6>
+                                    <h2 class="mb-0 text-muted">-</h2>
+                                </div>
+                                <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-user-check text-warning fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Retired Assets</h6>
+                                    <h2 class="mb-0 text-muted">-</h2>
+                                </div>
+                                <div class="bg-danger bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-trash-alt text-danger fa-2x"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Assigned Assets -->
-        <div class="col-md-3">
-            <div class="card stat-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Assigned Assets</h6>
-                            <h2 class="mb-0">{{ assigned_assets }}</h2>
-                        </div>
-                        <div class="bg-info bg-opacity-10 p-3 rounded">
-                            <i class="fas fa-user-check text-info fa-2x"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Total Employees -->
-        <div class="col-md-3">
-            <div class="card stat-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Employees</h6>
-                            <h2 class="mb-0">{{ total_employees }}</h2>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 p-3 rounded">
-                            <i class="fas fa-users text-warning fa-2x"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Charts and Tables Row -->
-    <div class="row g-4">
-        <!-- Asset Type Distribution -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
-                    <h5 class="card-title mb-0">Asset Type Distribution</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="assetTypeChart" 
-                                data-labels="{% for item in asset_type_distribution %}{{ item.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
-                                data-values="{% for item in asset_type_distribution %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}">
-                        </canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Owner Company Distribution -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
-                    <h5 class="card-title mb-0">Owner Company Distribution</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="ownerCompanyChart"
-                                data-labels="{% for item in owner_company_distribution %}{{ item.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
-                                data-values="{% for item in owner_company_distribution %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}">
-                        </canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Assets -->
-        <div class="col-md-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Recent Assets</h5>
-                    <a href="{% url 'inventory:asset_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+            <!-- Example: Recent Assets Table (empty) -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    Recent Assets
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-bordered">
                             <thead>
                                 <tr>
                                     <th>Name</th>
                                     <th>Type</th>
-                                    <th>Owner</th>
+                                    <th>Serial Number</th>
                                     <th>Status</th>
-                                    <th>Assigned To</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for asset in recent_assets %}
+                                <tr><td colspan="4" class="text-center text-muted">No data (Access Denied)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- Example: Recent History Table (empty) -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    Recent Asset History
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
                                 <tr>
-                                    <td>
-                                        <a href="{% url 'inventory:asset_detail' asset.pk %}" class="text-decoration-none">
-                                            {{ asset.name }}
-                                        </a>
-                                    </td>
-                                    <td>{{ asset.asset_type.display_name }}</td>
-                                    <td>{{ asset.owner.name }}</td>
-                                    <td>
-                                        <span class="badge {% if asset.status == 'available' %}bg-success{% elif asset.status == 'assigned' %}bg-info{% elif asset.status == 'maintenance' %}bg-warning{% else %}bg-secondary{% endif %} asset-status-badge">
-                                            {{ asset.get_status_display }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if asset.assigned_to %}
-                                            {{ asset.assigned_to.get_full_name }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
+                                    <th>Asset</th>
+                                    <th>Status</th>
+                                    <th>Assigned To</th>
+                                    <th>Date</th>
                                 </tr>
-                                {% endfor %}
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="4" class="text-center text-muted">No data (Access Denied)</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Warranty Alerts -->
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="card-title mb-0">Warranty Alerts</h5>
-                </div>
-                <div class="card-body">
-                    {% if expiring_warranty_assets %}
-                        <div class="list-group list-group-flush">
-                            {% for asset in expiring_warranty_assets %}
-                            <a href="{% url 'inventory:asset_detail' asset.pk %}" class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">{{ asset.name }}</h6>
-                                    <small class="warranty-warning">
-                                        Expires: {{ asset.warranty_expiry|date:"M d, Y" }}
-                                    </small>
-                                </div>
-                                <small class="text-muted">{{ asset.asset_type.display_name }} - {{ asset.owner.name }}</small>
+    {% else %}
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h1></h1>
+                        <p class="mb-0">    </p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="btn-group">
+                            <a href="{% url 'inventory:asset_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Add New Asset
                             </a>
-                            {% endfor %}
+                            <a href="{% url 'inventory:employee_create' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-user-plus me-2"></i>Add New Employee
+                            </a>
                         </div>
-                    {% else %}
-                        <p class="text-muted mb-0">No assets with expiring warranty.</p>
-                    {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
- <!-- Recent Asset History -->
-        <div class="col-md-8">
-           
 
-    <div class="card shadow-sm">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-                <i class="fas fa-history me-2"></i>Recent Asset History
-            </h5>
-            <a href="{% url 'inventory:asset_history' %}" class="btn btn-sm btn-outline-primary">
-                View All History
-            </a>
-        </div>
-        <div class="card-body">
-            {% if recent_history %}
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Asset Name</th>
-                            <th>Status</th>
-                            <th>Assigned To</th>
-                            <th>Date</th>
-                            <th>Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for entry in recent_history %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'inventory:asset_detail' entry.asset.id %}">
-                                    {{ entry.asset.name }}
-                                </a>
-                            </td>
-                            <td>{{ entry.get_status_display }}</td>
-                            <td>
-                                {% if entry.assigned_to %}
-                                <a href="{% url 'inventory:employee_detail' entry.assigned_to.id %}">
-                                    {{ entry.assigned_to.get_full_name }}
-                                </a>
-                                {% else %}
-                                -
-                                {% endif %}
-                            </td>
-                            <td>{{ entry.date|date:"Y-m-d H:i" }}</td>
-                            <td>{{ entry.notes|default:"-" }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="container-fluid">
+            <!-- Statistics Cards -->
+            <div class="row g-4 mb-4">
+                <!-- Total Assets -->
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Total Assets</h6>
+                                    <h2 class="mb-0">{{ total_assets }}</h2>
+                                </div>
+                                <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-laptop text-primary fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Available Assets -->
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Available Assets</h6>
+                                    <h2 class="mb-0">{{ available_assets }}</h2>
+                                </div>
+                                <div class="bg-success bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-check-circle text-success fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Assigned Assets -->
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Assigned Assets</h6>
+                                    <h2 class="mb-0">{{ assigned_assets }}</h2>
+                                </div>
+                                <div class="bg-info bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-user-check text-info fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Employees -->
+                <div class="col-md-3">
+                    <div class="card stat-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Total Employees</h6>
+                                    <h2 class="mb-0">{{ total_employees }}</h2>
+                                </div>
+                                <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                    <i class="fas fa-users text-warning fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            {% else %}
-            <div class="alert alert-info">
-                No asset history found.
+
+            <!-- Charts and Tables Row -->
+            <div class="row g-4">
+                <!-- Asset Type Distribution -->
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Asset Type Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="assetTypeChart" 
+                                        data-labels="{% for item in asset_type_distribution %}{{ item.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                                        data-values="{% for item in asset_type_distribution %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}">
+                                </canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Owner Company Distribution -->
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Owner Company Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="ownerCompanyChart"
+                                        data-labels="{% for item in owner_company_distribution %}{{ item.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                                        data-values="{% for item in owner_company_distribution %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}">
+                                </canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Assets -->
+                <div class="col-md-8">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Recent Assets</h5>
+                            <a href="{% url 'inventory:asset_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Type</th>
+                                            <th>Owner</th>
+                                            <th>Status</th>
+                                            <th>Assigned To</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for asset in recent_assets %}
+                                        <tr>
+                                            <td>
+                                                <a href="{% url 'inventory:asset_detail' asset.pk %}" class="text-decoration-none">
+                                                    {{ asset.name }}
+                                                </a>
+                                            </td>
+                                            <td>{{ asset.asset_type.display_name }}</td>
+                                            <td>{{ asset.owner.name }}</td>
+                                            <td>
+                                                <span class="badge {% if asset.status == 'available' %}bg-success{% elif asset.status == 'assigned' %}bg-info{% elif asset.status == 'maintenance' %}bg-warning{% else %}bg-secondary{% endif %} asset-status-badge">
+                                                    {{ asset.get_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if asset.assigned_to %}
+                                                    {{ asset.assigned_to.get_full_name }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Warranty Alerts -->
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Warranty Alerts</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if expiring_warranty_assets %}
+                                <div class="list-group list-group-flush">
+                                    {% for asset in expiring_warranty_assets %}
+                                    <a href="{% url 'inventory:asset_detail' asset.pk %}" class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ asset.name }}</h6>
+                                            <small class="warranty-warning">
+                                                Expires: {{ asset.warranty_expiry|date:"M d, Y" }}
+                                            </small>
+                                        </div>
+                                        <small class="text-muted">{{ asset.asset_type.display_name }} - {{ asset.owner.name }}</small>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0">No assets with expiring warranty.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Asset History -->
+                <div class="col-md-8">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-history me-2"></i>Recent Asset History
+                            </h5>
+                            <a href="{% url 'inventory:asset_history' %}" class="btn btn-sm btn-outline-primary">
+                                View All History
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_history %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Asset Name</th>
+                                            <th>Status</th>
+                                            <th>Assigned To</th>
+                                            <th>Date</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for entry in recent_history %}
+                                        <tr>
+                                            <td>
+                                                <a href="{% url 'inventory:asset_detail' entry.asset.id %}">
+                                                    {{ entry.asset.name }}
+                                                </a>
+                                            </td>
+                                            <td>{{ entry.get_status_display }}</td>
+                                            <td>
+                                                {% if entry.assigned_to %}
+                                                <a href="{% url 'inventory:employee_detail' entry.assigned_to.id %}">
+                                                    {{ entry.assigned_to.get_full_name }}
+                                                </a>
+                                                {% else %}
+                                                -
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ entry.date|date:"Y-m-d H:i" }}</td>
+                                            <td>{{ entry.notes|default:"-" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                No asset history found.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
-            {% endif %}
         </div>
-    </div>
-        </div>
-    </div>
+    {% endif %}
 </div>
 {% endblock %}
 

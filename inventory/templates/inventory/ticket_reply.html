@@ -1,17 +1,17 @@
 {% extends 'inventory/base.html' %}
 {% load static %}
 
-{% block title %}Reply to Message{% endblock %}
+{% block title %}Reply to Ticket{% endblock %}
 
 {% block extra_css %}
-<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
 <style>
     .note-editable {
-        direction: rtl;
-        text-align: right;
-    }
-    .note-editable[dir="ltr"] {
+        direction: ltr;
         text-align: left;
+    }
+    .note-editable[dir="rtl"] {
+        text-align: right;
     }
 </style>
 {% endblock %}
@@ -22,20 +22,20 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title mb-0">Reply to Message</h3>
+                    <h3 class="card-title mb-0">Reply to Ticket</h3>
                 </div>
                 <div class="card-body">
-                    <!-- Original Message -->
+                    <!-- Original Ticket -->
                     <div class="mb-4">
-                        <h5>Original Message:</h5>
+                        <h5>Original Ticket:</h5>
                         <div class="card">
                             <div class="card-body">
-                                <p><strong>From:</strong> {{ original_message.sender.get_full_name|default:original_message.sender.username }}</p>
-                                <p><strong>Subject:</strong> {{ original_message.subject }}</p>
-                                <p><strong>Date:</strong> {{ original_message.created_at|date:"M d, Y H:i" }}</p>
+                                <p><strong>From:</strong> {{ original_ticket.sender.get_full_name|default:original_ticket.sender.username }}</p>
+                                <p><strong>Subject:</strong> {{ original_ticket.subject }}</p>
+                                <p><strong>Date:</strong> {{ original_ticket.created_at|date:"M d, Y H:i" }}</p>
                                 <hr>
-                                <div class="message-content">
-                                    {{ original_message.content|safe }}
+                                <div class="ticket-content">
+                                    {{ original_ticket.content|safe }}
                                 </div>
                             </div>
                         </div>
@@ -63,8 +63,8 @@
                             {% endif %}
                         </div>
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'inventory:message_detail' original_message.id %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Back to Message
+                            <a href="{% url 'inventory:ticket_detail' original_ticket.id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to Ticket
                             </a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-paper-plane"></i> Send Reply
@@ -80,7 +80,7 @@
 
 {% block extra_js %}
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
 <script>
     $(document).ready(function() {
         $('.rich-text-editor').summernote({
@@ -88,44 +88,16 @@
             toolbar: [
                 ['style', ['style']],
                 ['font', ['bold', 'italic', 'underline', 'clear']],
-                ['fontname', ['fontname']],
-                ['fontsize', ['fontsize']],
                 ['color', ['color']],
-                ['para', ['ul', 'ol', 'paragraph']],
-                ['height', ['height']],
+                ['para', ['ul', 'ol', 'paragraph', 'align']],
                 ['insert', ['link']],
                 ['view', ['fullscreen', 'codeview']],
-                ['custom', ['toggleDirection']]
             ],
-            fontNames: ['Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Helvetica', 'Times New Roman', 'Verdana', 'Tahoma'],
-            fontSizes: ['8', '9', '10', '11', '12', '14', '16', '18', '24', '36'],
-            placeholder: 'اكتب ردك هنا ...',
+            placeholder: 'Write your reply here...',
             callbacks: {
                 onInit: function() {
                     var editor = $('.note-editable');
-                    editor.attr('dir', 'rtl');
-                }
-            },
-            buttons: {
-                toggleDirection: function(context) {
-                    var ui = $.summernote.ui;
-                    var button = ui.button({
-                        contents: '<i class="fa fa-exchange"></i> Toggle Direction',
-                        tooltip: 'Toggle RTL/LTR for selected text',
-                        click: function() {
-                            var range = context.invoke('editor.getLastRange');
-                            if (range) {
-                                var selectedNode = range.commonAncestor();
-                                var currentDir = $(selectedNode).css('direction');
-                                var newDir = currentDir === 'rtl' ? 'ltr' : 'rtl';
-                                
-                                // Apply direction to the selected node
-                                $(selectedNode).css('direction', newDir);
-                                $(selectedNode).css('text-align', newDir === 'rtl' ? 'right' : 'left');
-                            }
-                        }
-                    });
-                    return button.render();
+                    editor.attr('dir', 'ltr');
                 }
             }
         });

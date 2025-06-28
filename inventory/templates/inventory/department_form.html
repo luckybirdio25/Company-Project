@@ -42,6 +42,15 @@
                                 rows="3">{{ form.description.value|default:'' }}</textarea>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="{{ form.positions.id_for_label }}" class="form-label">Positions</label>
+                            {{ form.positions.errors }}
+                            {{ form.positions }}
+                            {% if form.positions.help_text %}
+                            <div class="form-text">{{ form.positions.help_text }}</div>
+                            {% endif %}
+                        </div>
+
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'inventory:department_list' %}" class="btn btn-secondary">Cancel</a>
                             <button type="submit" class="btn btn-primary">

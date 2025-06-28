@@ -1,0 +1,72 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}My Tickets{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-ticket-alt me-2"></i>My Tickets
+        </h1>
+        <div>
+            <a href="#" class="btn btn-primary" {% if access_denied or not can_add_ticket %}disabled title="Access Denied"{% endif %}>
+                <i class="fas fa-plus"></i> Create Ticket
+            </a>
+        </div>
+    </div>
+
+    {% if access_denied %}
+    <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i> Access Denied: You do not have permission to view tickets.
+    </div>
+    {% endif %}
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Ticket #</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if access_denied %}
+                        <tr><td colspan="5" class="text-center text-muted">No data (Access Denied)</td></tr>
+                        {% else %}
+                        {% for ticket in tickets %}
+                        <tr>
+                            <td>{{ ticket.ticket_number }}</td>
+                            <td>{{ ticket.subject }}</td>
+                            <td>{{ ticket.get_status_display }}</td>
+                            <td>{{ ticket.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <a href="#" class="btn btn-info btn-sm" {% if access_denied or not can_change_ticket %}disabled title="Access Denied"{% endif %}>
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="#" class="btn btn-warning btn-sm" {% if access_denied or not can_change_ticket %}disabled title="Access Denied"{% endif %}>
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="#" class="btn btn-danger btn-sm" {% if access_denied or not can_delete_ticket %}disabled title="Access Denied"{% endif %}>
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No tickets found.</td>
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

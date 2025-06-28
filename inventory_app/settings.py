@@ -32,7 +32,7 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '172.16.220.105']
 
 INSTALLED_APPS = [
     # Local apps first to override built-in commands
-    'inventory',
+    'inventory',    
     
     # Django built-in apps
     'django.contrib.admin',
@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'inventory.middleware.UpdateLastSeenMiddleware',
 ]
 
 ROOT_URLCONF = 'inventory_app.urls'
@@ -58,7 +59,7 @@ ROOT_URLCONF = 'inventory_app.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -66,7 +67,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'inventory.context_processors.unread_messages',
             ],
         },
     },
@@ -113,7 +113,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Cairo'
 
 USE_I18N = True
 
@@ -143,3 +143,7 @@ AUTHENTICATION_BACKENDS = [
     'inventory.auth_backend.CustomAuthBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+# Custom error pages
+handler403 = 'inventory.views.custom_403'
+handler404 = 'inventory.views.custom_404'
